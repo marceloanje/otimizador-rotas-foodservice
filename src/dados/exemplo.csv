@@ -1,0 +1,7 @@
+id_pedido,cliente,endereco,latitude,longitude,horario_entrega,qtd_produtos,peso_kg,tempo_servico_min
+1,Restaurante Sabor & Arte,Rua A, -19.9191, -43.9386,08:30-09:00,15,12.5,10
+2,Padaria Pão Quente,Rua B, -19.9222, -43.9401,09:00-09:30,8,6.2,8
+3,Café Central,Rua C, -19.9185, -43.9450,09:15-10:00,12,9.7,12
+4,Lanchonete Bom Gosto,Rua D, -19.9240, -43.9360,10:00-10:30,20,15.0,15
+5,Pizzaria Delícia,Rua E, -19.9205, -43.9345,10:30-11:00,25,18.3,20
+6,Restaurante Mineiro,Rua F, -19.9270, -43.9399,11:00-11:30,30,21.0,18

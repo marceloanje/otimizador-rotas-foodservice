@@ -1,0 +1,11 @@
+data_pedido,pedido,codigo_cliente,cliente,nome_fantasia,endereco_entrega,bairro_entrega,municipio_entrega,UF_entrega,sequencia_entrega,codigo_cobranca,valor_total,posicao,hora_de_entrega,quantidade_produto
+2025-02-01,1001,C001,Comercial Silva Ltda,Silva Food,"Rua das Acácias, 120",Centro,Belo Horizonte,MG,1,B001,482.50,"(-19.9201, -43.9378)",09:15,32
+2025-02-01,1002,C002,Padaria Doce Trigo,Doce Trigo,"Av. Amazonas, 4500",Gameleira,Belo Horizonte,MG,2,B002,258.90,"(-19.9450, -43.9732)",10:10,14
+2025-02-01,1003,C003,Restaurante Sabor,Sabor Grill,"Rua Flor-de-Lis, 87",Prado,Belo Horizonte,MG,3,B003,789.00,"(-19.9334, -43.9521)",10:45,48
+2025-02-01,1004,C004,Hortifruti Central,HF Central,"Rua São Paulo, 3220",Funcionários,Belo Horizonte,MG,4,B004,355.10,"(-19.9317, -43.9153)",11:20,22
+2025-02-01,1005,C005,Lanchonete Avenida,Av. Lanches,"Av. Afonso Pena, 3000",Cruzeiro,Belo Horizonte,MG,5,B005,129.80,"(-19.9387, -43.9265)",12:00,9
+2025-02-01,1006,C006,Empório Bom Gosto,Bom Gosto,"Rua Ipê Amarelo, 55",Santa Amélia,Belo Horizonte,MG,6,B006,624.70,"(-19.8529, -43.9530)",12:40,41
+2025-02-01,1007,C007,Bar do Portuga,Portuga,"Rua Timbiras, 1900",Lourdes,Belo Horizonte,MG,7,B007,215.60,"(-19.9274, -43.9371)",13:15,12
+2025-02-01,1008,C008,Supermercado União,União,"Av. Cristiano Machado, 10200",Planalto,Belo Horizonte,MG,8,B008,980.20,"(-19.8400, -43.9233)",14:00,55
+2025-02-01,1009,C009,Mercearia Santa Fé,Santa Fé,"Rua Coronel J. Gomes, 210",Floresta,Belo Horizonte,MG,9,B009,310.90,"(-19.9184, -43.9209)",14:40,18
+2025-02-01,1010,C010,Restaurante Bom Prato,Bom Prato,"Av. dos Andradas, 4200",Horto,Belo Horizonte,MG,10,B010,702.30,"(-19.9035, -43.9008)",15:20,39

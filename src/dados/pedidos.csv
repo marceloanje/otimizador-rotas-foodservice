@@ -1,4 +1,5 @@
 data_pedido,pedido,codigo_cliente,cliente,nome_fantasia,endereco_entrega,bairro_entrega,municipio_entrega,UF_entrega,sequencia_entrega,codigo_cobranca,valor_total,posicao,hora_de_entrega,quantidade_produto
+2025-02-01,0,DEP0,Deposito,Deposito,"Depósito Central",Centro,Belo Horizonte,MG,0,DEP,0.00,"(-19.9200, -43.9400)",,0
 2025-02-01,1001,C001,Comercial Silva Ltda,Silva Food,"Rua das Acácias, 120",Centro,Belo Horizonte,MG,1,B001,482.50,"(-19.9201, -43.9378)",09:15,32
 2025-02-01,1002,C002,Padaria Doce Trigo,Doce Trigo,"Av. Amazonas, 4500",Gameleira,Belo Horizonte,MG,2,B002,258.90,"(-19.9450, -43.9732)",10:10,14
 2025-02-01,1003,C003,Restaurante Sabor,Sabor Grill,"Rua Flor-de-Lis, 87",Prado,Belo Horizonte,MG,3,B003,789.00,"(-19.9334, -43.9521)",10:45,48

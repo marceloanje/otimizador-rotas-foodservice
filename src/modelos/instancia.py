@@ -3,7 +3,7 @@ import numpy as np
 import ast
 
 class Instancia:
-    """Representação de uma instância do problema VRPTW. Teste
+    """Representação de uma instância do problema VRPTW.
 
     Attributes
     ----------

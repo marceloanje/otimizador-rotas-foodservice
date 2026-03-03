@@ -24,7 +24,7 @@ def executar_algoritmo(name, solver_cls, instancia, runs=10, seed_base=42):
 
         results.append({
             "run": r,
-            "rota": sol.rota,
+            "rotas": getattr(sol, "rotas", []),
             "custo": sol.custo,
             "tempo": tempo,
             "meta": getattr(sol, "meta", {})

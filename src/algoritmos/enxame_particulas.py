@@ -99,6 +99,6 @@ class PSO:
                         gbest_cost = cost
 
         elapsed = time.time() - start
-        sol = Solucao(gbest, gbest_cost)
+        sol = Solucao([gbest], gbest_cost, instancia=self.inst)
         sol.meta = {"tempo": elapsed, "iter": self.max_iter}
         return sol

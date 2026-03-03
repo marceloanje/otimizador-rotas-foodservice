@@ -88,6 +88,6 @@ class BuscaTabu:
                 break
 
         elapsed = time.time() - start
-        sol = Solucao(best, best_cost)
+        sol = Solucao([best], best_cost, instancia=self.inst)
         sol.meta = {"tempo": elapsed, "iter": it+1}
         return sol

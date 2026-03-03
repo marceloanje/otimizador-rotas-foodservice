@@ -76,4 +76,4 @@ class ACO:
 
             self.atualizar_feromonio(melhor_rota, melhor_custo)
 
-        return Solucao(melhor_rota, melhor_custo)
+        return Solucao([melhor_rota], melhor_custo, instancia=self.inst)

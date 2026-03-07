@@ -48,26 +48,74 @@ class Instancia:
 
         from config import CAPACIDADE_CAMINHAO
 
+        # Ler CSV - pode ter problemas com colunas devido a vírgulas extras
         df = pd.read_csv(path)
+        
+        # Se a última coluna estiver vazia (NaN), remover
+        if df.columns[-1] == '' or (isinstance(df.columns[-1], str) and df.columns[-1].strip() == ''):
+            df = df.iloc[:, :-1]
+        elif df[df.columns[-1]].isna().all():
+            df = df.drop(columns=[df.columns[-1]])
 
         # Parse posições
+        # Tentar encontrar a coluna com coordenadas
+        posicao_col = None
         if "posicao" in df.columns:
+            posicao_col = "posicao"
+        elif "valor_total" in df.columns:
+            # Verificar se valor_total tem tuplas de coordenadas (string com parênteses)
+            sample = str(df["valor_total"].iloc[0])
+            if sample.startswith('(') and ',' in sample:
+                posicao_col = "valor_total"
+        
+        if posicao_col:
             lats = []
             lons = []
-            for p in df["posicao"]:
-                lat, lon = ast.literal_eval(p)
-                lats.append(lat)
-                lons.append(lon)
+            for p in df[posicao_col]:
+                # Skip NaN or empty values
+                if pd.isna(p) or p == "" or str(p).strip() == "":
+                    # Use dummy coordinates if missing
+                    lats.append(0.0)
+                    lons.append(0.0)
+                else:
+                    try:
+                        lat, lon = ast.literal_eval(str(p))
+                        lats.append(lat)
+                        lons.append(lon)
+                    except (ValueError, SyntaxError):
+                        # If parsing fails, use dummy coordinates
+                        lats.append(0.0)
+                        lons.append(0.0)
 
             df["lat"] = lats
             df["lon"] = lons
+        elif "lat" in df.columns and "lon" in df.columns:
+            # Já tem lat/lon nas colunas
+            pass
+        else:
+            raise ValueError("CSV deve ter coluna 'posicao' com coordenadas ou colunas 'lat' e 'lon'")
+
 
         posicoes = list(zip(df["lat"], df["lon"]))
 
-        # Demandas: usar `valor_total` quando presente
+        # Demandas: tentar diferentes colunas
+        demandas = None
         if "valor_total" in df.columns:
-            demandas = df["valor_total"].fillna(0).astype(float).tolist()
-        else:
+            # Verificar se valor_total é numérico
+            try:
+                demandas = df["valor_total"].fillna(0).astype(float).tolist()
+            except (ValueError, TypeError):
+                # Se não for numérico, tentar codigo_cobranca
+                pass
+        
+        if demandas is None and "codigo_cobranca" in df.columns:
+            try:
+                demandas = df["codigo_cobranca"].fillna(0).astype(float).tolist()
+            except (ValueError, TypeError):
+                pass
+        
+        if demandas is None:
+            # Fallback: usar zeros
             demandas = [0.0] * len(df)
 
         capacidade = capacidade_caminhao if capacidade_caminhao is not None else CAPACIDADE_CAMINHAO

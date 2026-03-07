@@ -6,7 +6,7 @@ def main():
     print("Otimizador de Rotas - Protótipo Inicial")
 
     # Carregar dados ficticios
-    # instancia = Instancia.from_csv("src/dados/pedidos.csv")
+    # instancia = Instancia.do_csv("src/dados/pedidos.csv")
     # instancia.gerar_matriz_distancias_ficticia()
 
     # Rodar versão inicial da colônia de formigas

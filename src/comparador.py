@@ -43,7 +43,7 @@ def resumir_results(results):
 
 def comparar(instancia_path="src/dados/pedidos.csv", runs=10, output_csv="resultados_comparacao.csv"):
     print("Carregando instancia:", instancia_path)
-    instancia = Instancia.from_csv(instancia_path)
+    instancia = Instancia.do_csv(instancia_path)
     instancia.gerar_matriz_distancias_ficticia()
 
     algs = [

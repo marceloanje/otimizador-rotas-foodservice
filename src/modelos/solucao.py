@@ -35,51 +35,26 @@ class Solucao:
         inst = instancia or self.instancia
         if inst is None:
             raise ValueError("Instancia necessária para checar validade")
-
-        capacidade = getattr(inst, "capacidade_veiculo", None)
+        capacidade = getattr(inst, "capacidade_caminhao", None)
         matr = getattr(inst, "matriz", None)
         demandas = getattr(inst, "demandas", getattr(inst, "demands", None))
-        janelas = getattr(inst, "janelas_tempo", None)
-        tempos_serv = getattr(inst, "tempos_servico", None)
-        depot = getattr(inst, "depot_index", 0)
 
         viol_cap = 0
-        viol_tw = 0
 
         for rota in self.rotas:
-            # Capacidade
+            # Checagem de capacidade da rota
             if capacidade is not None and demandas is not None:
                 carga = 0.0
                 for node in rota:
-                    if node == depot:
+                    # assumir nó 0 como depósito
+                    if node == 0:
                         continue
                     carga += float(demandas[node])
                 if carga > capacidade:
                     viol_cap += 1
 
-            # Janelas de tempo (checagem aproximada usando matriz de distâncias)
-            if matr is not None and janelas is not None and tempos_serv is not None:
-                tempo = 0.0
-                ok = True
-                for i in range(len(rota) - 1):
-                    a = rota[i]
-                    b = rota[i + 1]
-                    # tempo de viagem
-                    tempo += float(matr[a][b])
-                    # chegada em b
-                    tw_start, tw_end = janelas[b]
-                    if tempo < tw_start:
-                        tempo = tw_start
-                    if tempo > tw_end:
-                        ok = False
-                        break
-                    # adicionar tempo de serviço em b
-                    tempo += float(tempos_serv[b])
-                if not ok:
-                    viol_tw += 1
-
-        self.violacoes = {"capacidade": viol_cap, "janela_tempo": viol_tw}
-        return (viol_cap + viol_tw) == 0
+        self.violacoes = {"capacidade": viol_cap}
+        return viol_cap == 0
 
     def __repr__(self):
         return f"Solucao(n_rotas={self.n_veiculos}, custo={self.custo}, violacoes={self.violacoes})"

@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import ast
 
 class Instancia:
     """
@@ -34,89 +33,60 @@ class Instancia:
     def do_csv(cls, path, capacidade_caminhao=None):
         """Cria uma `Instancia` a partir do CSV de pedidos (CVRP).
 
-        Lê as colunas `posicao` (ou `lat`/`lon`) e `valor_total` do CSV e usa
-        `valor_total` como demanda de cada nó. A primeira linha do CSV é
-        considerada o depósito (nó 0).
+        O depósito (nó 0) é inserido automaticamente a partir das constantes
+        `DEPOSITO_LAT` e `DEPOSITO_LON` definidas em `config.py` — ele não deve
+        constar no CSV.
+
+        Se o CSV não possuir colunas `lat` e `lon`, o geocodificador é acionado
+        automaticamente para cada endereço. Resultados são armazenados em cache
+        local (`src/dados/cache_geocodificacao.json`) para evitar requisições
+        repetidas.
 
         Parâmetros
-        ---------
+        ----------
         path : str
             Caminho para o CSV de pedidos.
         capacidade_caminhao : int | None
-            Capacidade por caminhão; se None usa o valor padrão de `src/config.py`.
+            Capacidade por caminhão; se None usa o valor padrão de `config.py`.
         """
+        from config import CAPACIDADE_CAMINHAO, DEPOSITO_LAT, DEPOSITO_LON
 
-        from config import CAPACIDADE_CAMINHAO
-
-        # Ler CSV - pode ter problemas com colunas devido a vírgulas extras
         df = pd.read_csv(path)
-        
-        # Se a última coluna estiver vazia (NaN), remover
-        if df.columns[-1] == '' or (isinstance(df.columns[-1], str) and df.columns[-1].strip() == ''):
-            df = df.iloc[:, :-1]
-        elif df[df.columns[-1]].isna().all():
-            df = df.drop(columns=[df.columns[-1]])
 
-        # Parse posições
-        # Tentar encontrar a coluna com coordenadas
-        posicao_col = None
-        if "posicao" in df.columns:
-            posicao_col = "posicao"
-        elif "valor_total" in df.columns:
-            # Verificar se valor_total tem tuplas de coordenadas (string com parênteses)
-            sample = str(df["valor_total"].iloc[0])
-            if sample.startswith('(') and ',' in sample:
-                posicao_col = "valor_total"
-        
-        if posicao_col:
-            lats = []
-            lons = []
-            for p in df[posicao_col]:
-                # Skip NaN or empty values
-                if pd.isna(p) or p == "" or str(p).strip() == "":
-                    # Use dummy coordinates if missing
-                    lats.append(0.0)
-                    lons.append(0.0)
-                else:
-                    try:
-                        lat, lon = ast.literal_eval(str(p))
-                        lats.append(lat)
-                        lons.append(lon)
-                    except (ValueError, SyntaxError):
-                        # If parsing fails, use dummy coordinates
-                        lats.append(0.0)
-                        lons.append(0.0)
+        # Remover coluna vazia ou toda-NaN no final (artefato de exportação CSV)
+        ultima = df.columns[-1]
+        if (isinstance(ultima, str) and ultima.strip() == "") or df[ultima].isna().all():
+            df = df.drop(columns=[ultima])
 
-            df["lat"] = lats
-            df["lon"] = lons
-        elif "lat" in df.columns and "lon" in df.columns:
-            # Já tem lat/lon nas colunas
-            pass
-        else:
-            raise ValueError("CSV deve ter coluna 'posicao' com coordenadas ou colunas 'lat' e 'lon'")
+        # Geocodificar se lat/lon ainda não estiverem presentes
+        if "lat" not in df.columns or "lon" not in df.columns:
+            from geoprocessamento.geocodificador import geocodificar_dataframe
+            print("Coordenadas não encontradas no CSV. Iniciando geocodificação...")
+            df = geocodificar_dataframe(df)
 
+        # Descartar linhas onde a geocodificação falhou
+        n_antes = len(df)
+        df = df.dropna(subset=["lat", "lon"]).reset_index(drop=True)
+        n_descartados = n_antes - len(df)
+        if n_descartados > 0:
+            print(f"AVISO: {n_descartados} linha(s) descartada(s) por falha na geocodificação.")
 
-        posicoes = list(zip(df["lat"], df["lon"]))
+        # Prepender depósito como nó 0
+        deposito_row = {col: None for col in df.columns}
+        deposito_row["lat"] = DEPOSITO_LAT
+        deposito_row["lon"] = DEPOSITO_LON
+        if "valor_total" in deposito_row:
+            deposito_row["valor_total"] = 0.0
+        df = pd.concat([pd.DataFrame([deposito_row]), df], ignore_index=True)
 
-        # Demandas: tentar diferentes colunas
-        demandas = None
+        posicoes = list(zip(df["lat"].astype(float), df["lon"].astype(float)))
+
+        # Demandas: coluna valor_total; depósito (índice 0) recebe 0.0
         if "valor_total" in df.columns:
-            # Verificar se valor_total é numérico
-            try:
-                demandas = df["valor_total"].fillna(0).astype(float).tolist()
-            except (ValueError, TypeError):
-                # Se não for numérico, tentar codigo_cobranca
-                pass
-        
-        if demandas is None and "codigo_cobranca" in df.columns:
-            try:
-                demandas = df["codigo_cobranca"].fillna(0).astype(float).tolist()
-            except (ValueError, TypeError):
-                pass
-        
-        if demandas is None:
-            # Fallback: usar zeros
+            demandas = df["valor_total"].fillna(0).astype(float).tolist()
+        else:
             demandas = [0.0] * len(df)
+        demandas[0] = 0.0  # garante que o depósito tem demanda zero
 
         capacidade = capacidade_caminhao if capacidade_caminhao is not None else CAPACIDADE_CAMINHAO
 

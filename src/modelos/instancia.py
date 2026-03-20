@@ -63,6 +63,9 @@ class Instancia:
             from geoprocessamento.geocodificador import geocodificar_dataframe
             print("Coordenadas não encontradas no CSV. Iniciando geocodificação...")
             df = geocodificar_dataframe(df)
+            # Persistir lat/lon no CSV para evitar regeocificação nas próximas execuções
+            df.to_csv(path, index=False)
+            print(f"Coordenadas salvas em {path}.")
 
         # Descartar linhas onde a geocodificação falhou
         n_antes = len(df)
@@ -81,6 +84,16 @@ class Instancia:
 
         posicoes = list(zip(df["lat"].astype(float), df["lon"].astype(float)))
 
+        # Tentar obter matriz real via OSRM
+        try:
+            from geoprocessamento.integracao_osrm import obter_matriz_osrm
+            print("Calculando matriz de distâncias via OSRM...")
+            matriz_real = obter_matriz_osrm(posicoes)
+            print(f"Matriz OSRM obtida: shape {matriz_real.shape}, unidade: metros.")
+        except Exception as e:
+            print(f"AVISO: OSRM indisponível ({e}). Usando matriz euclidiana como fallback.")
+            matriz_real = None
+
         # Demandas: coluna valor_total; depósito (índice 0) recebe 0.0
         if "valor_total" in df.columns:
             demandas = df["valor_total"].fillna(0).astype(float).tolist()
@@ -96,6 +109,11 @@ class Instancia:
             demandas=demandas,
             capacidade_caminhao=capacidade,
         )
+
+        if matriz_real is not None:
+            instancia.matriz = matriz_real
+        else:
+            instancia.gerar_matriz_distancias_ficticia()
 
         instancia.validar()
         return instancia

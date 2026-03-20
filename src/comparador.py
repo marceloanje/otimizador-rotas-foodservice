@@ -80,7 +80,6 @@ def comparar(instancia_path=None, runs=10, output_csv=None):
     
     print("Carregando instancia:", instancia_path)
     instancia = Instancia.do_csv(instancia_path)
-    instancia.gerar_matriz_distancias_ficticia()
 
     algs = [
         ("ACO", ACO),

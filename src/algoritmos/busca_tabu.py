@@ -18,8 +18,7 @@ class BuscaTabu:
         self.max_iter = max_iter
         self.tabu_tenure = tabu_tenure
         self.max_no_improve = max_no_improve
-        
-        # Configuração de objetivo
+
         self.config = config if config is not None else ObjetivoConfig(matriz=self.matriz)
 
     def _solucao_inicial(self):
@@ -31,112 +30,80 @@ class BuscaTabu:
         return solucao.avaliar(self.inst, self.config)
 
     def _two_opt_intra_rota(self, solucao):
-        """
-        Gera vizinhos aplicando 2-opt dentro de cada rota.
-        
-        Yields
-        ------
-        tuple
-            (move_id, nova_solucao)
-        """
+        """Gera vizinhos aplicando 2-opt dentro de cada rota."""
         for idx_rota, rota in enumerate(solucao.rotas):
             # 2-opt só faz sentido para rotas com pelo menos 4 nós (dep, c1, c2, dep)
             if len(rota) < 4:
                 continue
-            
-            # Não mexer nos depósitos (primeiro e último)
+
+            # não mexer nos depósitos (primeiro e último)
             for i in range(1, len(rota) - 2):
                 for j in range(i + 1, len(rota) - 1):
-                    # Inverter segmento [i:j+1]
                     nova_rota = rota[:i] + rota[i:j+1][::-1] + rota[j+1:]
-                    
-                    # Criar nova solução
+
                     novas_rotas = [r[:] for r in solucao.rotas]
                     novas_rotas[idx_rota] = nova_rota
-                    
+
                     nova_solucao = Solucao(rotas=novas_rotas, instancia=self.inst)
-                    
+
                     move_id = ('2opt_intra', idx_rota, i, j)
                     yield (move_id, nova_solucao)
 
     def _relocate_cliente(self, solucao):
-        """
-        Gera vizinhos movendo um cliente de uma rota para outra.
-        
-        Yields
-        ------
-        tuple
-            (move_id, nova_solucao)
-        """
+        """Gera vizinhos movendo um cliente de uma rota para outra."""
         n_rotas = len(solucao.rotas)
-        
+
         for idx_origem in range(n_rotas):
             rota_origem = solucao.rotas[idx_origem]
-            
-            # Para cada cliente na rota (exceto depósitos)
+
             for pos_cliente in range(1, len(rota_origem) - 1):
                 cliente = rota_origem[pos_cliente]
-                
-                # Tentar inserir em outras rotas
+
                 for idx_destino in range(n_rotas):
                     if idx_origem == idx_destino:
                         continue
-                    
+
                     rota_destino = solucao.rotas[idx_destino]
-                    
-                    # Tentar inserir em cada posição da rota destino
+
                     for pos_insercao in range(1, len(rota_destino)):
-                        # Criar novas rotas
                         nova_rota_origem = rota_origem[:pos_cliente] + rota_origem[pos_cliente+1:]
                         nova_rota_destino = rota_destino[:pos_insercao] + [cliente] + rota_destino[pos_insercao:]
-                        
-                        # Criar nova solução
+
                         novas_rotas = [r[:] for r in solucao.rotas]
                         novas_rotas[idx_origem] = nova_rota_origem
                         novas_rotas[idx_destino] = nova_rota_destino
-                        
+
                         nova_solucao = Solucao(rotas=novas_rotas, instancia=self.inst)
-                        
+
                         move_id = ('relocate', idx_origem, pos_cliente, idx_destino, pos_insercao)
                         yield (move_id, nova_solucao)
 
     def _swap_clientes(self, solucao):
-        """
-        Gera vizinhos trocando clientes entre duas rotas.
-        
-        Yields
-        ------
-        tuple
-            (move_id, nova_solucao)
-        """
+        """Gera vizinhos trocando clientes entre duas rotas."""
         n_rotas = len(solucao.rotas)
-        
+
         for idx_rota1 in range(n_rotas):
             for idx_rota2 in range(idx_rota1 + 1, n_rotas):
                 rota1 = solucao.rotas[idx_rota1]
                 rota2 = solucao.rotas[idx_rota2]
-                
-                # Para cada par de clientes
+
                 for pos1 in range(1, len(rota1) - 1):
                     for pos2 in range(1, len(rota2) - 1):
-                        # Trocar clientes
                         nova_rota1 = rota1[:]
                         nova_rota2 = rota2[:]
                         nova_rota1[pos1], nova_rota2[pos2] = nova_rota2[pos2], nova_rota1[pos1]
-                        
-                        # Criar nova solução
+
                         novas_rotas = [r[:] for r in solucao.rotas]
                         novas_rotas[idx_rota1] = nova_rota1
                         novas_rotas[idx_rota2] = nova_rota2
-                        
+
                         nova_solucao = Solucao(rotas=novas_rotas, instancia=self.inst)
-                        
+
                         move_id = ('swap', idx_rota1, pos1, idx_rota2, pos2)
                         yield (move_id, nova_solucao)
 
     def _gerar_vizinhanca(self, solucao):
-        """Gera todos os vizinhos usando diferentes operadores."""
-        # Combinar diferentes operadores de vizinhança
+        """Combina 2-opt intra-rota, relocate e swap entre rotas."""
         yield from self._two_opt_intra_rota(solucao)
         yield from self._relocate_cliente(solucao)
         yield from self._swap_clientes(solucao)
@@ -144,14 +111,13 @@ class BuscaTabu:
     def run(self):
         start = time.time()
 
-        # Solução inicial
         current = self._solucao_inicial()
         self._avaliar_solucao(current)
-        
+
         best = copy.deepcopy(current)
         best_cost = best.custo_objetivo
 
-        # Lista tabu: dicionário de move_id -> tenure
+        # lista tabu: move_id → tenure restante
         tabu = dict()
         iter_no_improve = 0
 
@@ -160,13 +126,12 @@ class BuscaTabu:
             neighborhood_best_cost = float("inf")
             neighborhood_best_move = None
 
-            # Explorar vizinhança
             for move_id, candidate in self._gerar_vizinhanca(current):
                 cand_cost = self._avaliar_solucao(candidate)
 
                 is_tabu = move_id in tabu and tabu[move_id] > 0
 
-                # Critério de aspiração: aceitar se melhora melhor global
+                # critério de aspiração: aceita movimento tabu se bate o melhor global
                 if is_tabu and cand_cost >= best_cost:
                     continue
 
@@ -178,10 +143,9 @@ class BuscaTabu:
             if neighborhood_best is None:
                 break
 
-            # Aplicar melhor vizinho
             current = neighborhood_best
 
-            # Atualizar tabu: decrementar e adicionar movimento atual
+            # decrementar tenure e adicionar o movimento escolhido
             keys = list(tabu.keys())
             for k in keys:
                 tabu[k] -= 1
@@ -190,7 +154,6 @@ class BuscaTabu:
 
             tabu[neighborhood_best_move] = self.tabu_tenure
 
-            # Atualizar melhor global
             if neighborhood_best_cost < best_cost:
                 best = copy.deepcopy(neighborhood_best)
                 best_cost = neighborhood_best_cost
@@ -205,4 +168,3 @@ class BuscaTabu:
         best.tempo_computacional = elapsed
         best.meta = {"tempo": elapsed, "iter": it+1}
         return best
-

@@ -140,10 +140,6 @@ class Instancia:
         self._validar(requer_matriz=False)
 
     def _validar(self, requer_matriz: bool = False, epsilon: float = 1e-8):
-        """Validação interna simplificada para CVRP.
-
-        Remove checagens relacionadas a janelas de tempo e tempos de serviço.
-        """
 
         import numbers as numeros
 
@@ -215,6 +211,5 @@ class Instancia:
                 i0 = int(diag_ruim[0])
                 raise ValueError(f"Matriz inválida: elemento diagonal [{i0},{i0}] = {self.matriz[i0,i0]} fora da tolerância {epsilon} em relação a 0")
 
-        # Todas as validações passaram
         return True
 

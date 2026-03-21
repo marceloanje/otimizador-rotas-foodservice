@@ -1,6 +1,8 @@
 venv/
 .env/
 
+src/dados/dados_processados/
+
 __pycache__/
 *.pyc
 *.pyo

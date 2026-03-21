@@ -51,12 +51,11 @@ class Instancia:
         """
         from config import CAPACIDADE_CAMINHAO, DEPOSITO_LAT, DEPOSITO_LON
 
-        df = pd.read_csv(path)
-
-        # Remover coluna vazia ou toda-NaN no final (artefato de exportação CSV)
-        ultima = df.columns[-1]
-        if (isinstance(ultima, str) and ultima.strip() == "") or df[ultima].isna().all():
-            df = df.drop(columns=[ultima])
+        from geoprocessamento.preprocessamento import limpar_pedidos
+        df = limpar_pedidos(
+            path,
+            path_saida="src/dados/dados_processados/pedidos_limpos.csv",
+        )
 
         # Geocodificar se lat/lon ainda não estiverem presentes
         if "lat" not in df.columns or "lon" not in df.columns:
@@ -140,10 +139,6 @@ class Instancia:
         self._validar(requer_matriz=False)
 
     def _validar(self, requer_matriz: bool = False, epsilon: float = 1e-8):
-        """Validação interna simplificada para CVRP.
-
-        Remove checagens relacionadas a janelas de tempo e tempos de serviço.
-        """
 
         import numbers as numeros
 
@@ -215,6 +210,5 @@ class Instancia:
                 i0 = int(diag_ruim[0])
                 raise ValueError(f"Matriz inválida: elemento diagonal [{i0},{i0}] = {self.matriz[i0,i0]} fora da tolerância {epsilon} em relação a 0")
 
-        # Todas as validações passaram
         return True
 

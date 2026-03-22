@@ -5,6 +5,7 @@ import statistics
 import os
 import random
 
+from config import CAPACIDADE_CAMINHAO, NUMERO_CAMINHOES
 from modelos.instancia import Instancia
 from algoritmos.colonia_formigas import ACO
 from algoritmos.busca_tabu import BuscaTabu
@@ -79,7 +80,7 @@ def comparar(instancia_path=None, runs=10, output_csv=None):
         output_csv = os.path.join(project_root, "resultados_comparacao.csv")
     
     print("Carregando instancia:", instancia_path)
-    instancia = Instancia.do_csv(instancia_path)
+    instancia = Instancia.do_csv(instancia_path, capacidade_caminhao=CAPACIDADE_CAMINHAO)
 
     algs = [
         ("ACO", ACO),

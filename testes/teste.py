@@ -10,6 +10,9 @@ from modelos.instancia import Instancia
 from modelos.solucao import Solucao
 from modelos.objetivo_config import ObjetivoConfig
 from utilitarios.construtivas import nearest_neighbor_capacitado
+from algoritmos.busca_tabu import BuscaTabu
+from algoritmos.colonia_formigas import ACO
+from algoritmos.enxame_particulas import PSO
 import pandas as pd
 
 
@@ -215,6 +218,42 @@ def teste_heuristica_construtiva():
     print("✓ Teste 5 PASSOU")
 
 
+def teste_algoritmo_tabu():
+    """Teste 6: BuscaTabu retorna solução com rotas e custo_objetivo."""
+    print("\n=== Teste 6: Busca Tabu ===")
+    inst = criar_instancia_toy()
+    sol = BuscaTabu(inst, max_iter=10, max_no_improve=5).run()
+    assert sol is not None, "BuscaTabu deve retornar uma solução"
+    assert len(sol.rotas) > 0, "Solução deve ter pelo menos uma rota"
+    assert sol.custo_objetivo is not None, "custo_objetivo deve estar calculado"
+    print(f"✓ Rotas: {len(sol.rotas)}, custo_objetivo={sol.custo_objetivo:.2f}")
+    print("✓ Teste 6 PASSOU")
+
+
+def teste_algoritmo_aco():
+    """Teste 7: ACO retorna solução com rotas e custo_objetivo."""
+    print("\n=== Teste 7: ACO ===")
+    inst = criar_instancia_toy()
+    sol = ACO(inst, n_formigas=3, iter=5).run()
+    assert sol is not None, "ACO deve retornar uma solução"
+    assert len(sol.rotas) > 0, "Solução deve ter pelo menos uma rota"
+    assert sol.custo_objetivo is not None, "custo_objetivo deve estar calculado"
+    print(f"✓ Rotas: {len(sol.rotas)}, custo_objetivo={sol.custo_objetivo:.2f}")
+    print("✓ Teste 7 PASSOU")
+
+
+def teste_algoritmo_pso():
+    """Teste 8: PSO retorna solução com rotas e custo_objetivo."""
+    print("\n=== Teste 8: PSO ===")
+    inst = criar_instancia_toy()
+    sol = PSO(inst, n_particles=5, max_iter=5).run()
+    assert sol is not None, "PSO deve retornar uma solução"
+    assert len(sol.rotas) > 0, "Solução deve ter pelo menos uma rota"
+    assert sol.custo_objetivo is not None, "custo_objetivo deve estar calculado"
+    print(f"✓ Rotas: {len(sol.rotas)}, custo_objetivo={sol.custo_objetivo:.2f}")
+    print("✓ Teste 8 PASSOU")
+
+
 def teste_basico():
     """Executa teste básico do main (compatibilidade)."""
     print("\n=== Teste Básico: Main ===")
@@ -238,7 +277,10 @@ def executar_todos_testes():
         teste_verificacao_detalhada()
         teste_config_penalizacao()
         teste_heuristica_construtiva()
-        
+        teste_algoritmo_tabu()
+        teste_algoritmo_aco()
+        teste_algoritmo_pso()
+
         print("\n" + "="*60)
         print("✓ TODOS OS TESTES PASSARAM!")
         print("="*60)

@@ -3,6 +3,7 @@
 Unidades:
 - `CAPACIDADE_CAMINHAO`: unidades da demanda (mesma unidade de `valor_total` no CSV).
 - `NUMERO_CAMINHOES`: número de veículos disponíveis na frota.
+- `CARGA_MINIMA_CAMINHAO`: carga mínima por rota (10% da capacidade); rotas abaixo são penalizadas.
 
 As constantes ficam separadas neste arquivo para facilitar ajustes futuros.
 """
@@ -12,6 +13,9 @@ CAPACIDADE_CAMINHAO = 5000
 
 # Número de caminhões disponíveis na frota
 NUMERO_CAMINHOES = 2
+
+# Carga mínima por caminhão (evitar rotas quase vazias) — 10% da capacidade
+CARGA_MINIMA_CAMINHAO = int(CAPACIDADE_CAMINHAO * 0.10)
 
 # URL base do servidor OSRM para cálculo da matriz de distâncias
 # Local (Docker): "http://localhost:5000"

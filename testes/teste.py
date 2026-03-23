@@ -10,6 +10,9 @@ from modelos.instancia import Instancia
 from modelos.solucao import Solucao
 from modelos.objetivo_config import ObjetivoConfig
 from utilitarios.construtivas import nearest_neighbor_capacitado
+from algoritmos.busca_tabu import BuscaTabu
+from algoritmos.colonia_formigas import ACO
+from algoritmos.enxame_particulas import PSO
 import pandas as pd
 
 
@@ -215,6 +218,160 @@ def teste_heuristica_construtiva():
     print("✓ Teste 5 PASSOU")
 
 
+def teste_algoritmo_tabu():
+    """Teste 6: BuscaTabu retorna solução com rotas e custo_objetivo."""
+    print("\n=== Teste 6: Busca Tabu ===")
+    inst = criar_instancia_toy()
+    sol = BuscaTabu(inst, max_iter=10, max_no_improve=5).run()
+    assert sol is not None, "BuscaTabu deve retornar uma solução"
+    assert len(sol.rotas) > 0, "Solução deve ter pelo menos uma rota"
+    assert sol.custo_objetivo is not None, "custo_objetivo deve estar calculado"
+    print(f"✓ Rotas: {len(sol.rotas)}, custo_objetivo={sol.custo_objetivo:.2f}")
+    print("✓ Teste 6 PASSOU")
+
+
+def teste_algoritmo_aco():
+    """Teste 7: ACO retorna solução com rotas e custo_objetivo."""
+    print("\n=== Teste 7: ACO ===")
+    inst = criar_instancia_toy()
+    sol = ACO(inst, n_formigas=3, iter=5).run()
+    assert sol is not None, "ACO deve retornar uma solução"
+    assert len(sol.rotas) > 0, "Solução deve ter pelo menos uma rota"
+    assert sol.custo_objetivo is not None, "custo_objetivo deve estar calculado"
+    print(f"✓ Rotas: {len(sol.rotas)}, custo_objetivo={sol.custo_objetivo:.2f}")
+    print("✓ Teste 7 PASSOU")
+
+
+def teste_algoritmo_pso():
+    """Teste 8: PSO retorna solução com rotas e custo_objetivo."""
+    print("\n=== Teste 8: PSO ===")
+    inst = criar_instancia_toy()
+    sol = PSO(inst, n_particles=5, max_iter=5).run()
+    assert sol is not None, "PSO deve retornar uma solução"
+    assert len(sol.rotas) > 0, "Solução deve ter pelo menos uma rota"
+    assert sol.custo_objetivo is not None, "custo_objetivo deve estar calculado"
+    print(f"✓ Rotas: {len(sol.rotas)}, custo_objetivo={sol.custo_objetivo:.2f}")
+    print("✓ Teste 8 PASSOU")
+
+
+def teste_cobertura():
+    """Teste 9: Solução com cliente faltando gera penalidade de cobertura."""
+    print("\n=== Teste 9: Cobertura ===")
+
+    instancia = criar_instancia_toy()
+    instancia.numero_caminhoes = 2  # ativar verificação de frota
+
+    # Rota que omite cliente 3
+    rotas_incompletas = [[0, 1, 2, 0]]
+    sol_incompleta = Solucao(rotas=rotas_incompletas, instancia=instancia)
+    sol_incompleta.avaliar(instancia)
+
+    # Solução completa para comparação
+    rotas_completas = [[0, 1, 2, 0], [0, 3, 0]]
+    sol_completa = Solucao(rotas=rotas_completas, instancia=instancia)
+    sol_completa.avaliar(instancia)
+
+    assert sol_incompleta.verificar_cobertura(instancia) == 1, "Deveria faltar 1 cliente"
+    assert sol_incompleta.custo_objetivo > sol_completa.custo_objetivo, \
+        "Solução incompleta deve ter custo_objetivo maior"
+    assert not sol_incompleta.eh_valida(instancia), "Solução incompleta deve ser inválida"
+    assert sol_incompleta.violacoes["cobertura"] == 1
+
+    print(f"✓ Clientes faltando: {sol_incompleta.verificar_cobertura(instancia)}")
+    print(f"✓ custo_objetivo incompleta={sol_incompleta.custo_objetivo:.2f} > completa={sol_completa.custo_objetivo:.2f}")
+    print("✓ Teste 9 PASSOU")
+
+
+def teste_frota():
+    """Teste 10: Excesso de veículos gera penalidade e invalida solução."""
+    print("\n=== Teste 10: Frota ===")
+
+    instancia = criar_instancia_toy()
+    instancia.numero_caminhoes = 2  # limite de 2 caminhões
+
+    # 3 rotas com limite de 2 → excesso de 1
+    rotas = [[0, 1, 0], [0, 2, 0], [0, 3, 0]]
+    sol = Solucao(rotas=rotas, instancia=instancia)
+    sol.avaliar(instancia)
+    penalidade_frota = sol.violacoes.get("penalidade_veiculos", 0)
+    assert penalidade_frota > 0, "Deve haver penalidade de frota em avaliar()"
+
+    assert not sol.eh_valida(instancia), "Deve ser inválida por excesso de frota"
+    assert sol.violacoes["frota_excedida"] == 1, f"Esperado excesso=1, obtido={sol.violacoes['frota_excedida']}"
+
+    print(f"✓ Frota excedida: {sol.violacoes['frota_excedida']}")
+    print(f"✓ Penalidade veículos: {penalidade_frota:.2f}")
+    print("✓ Teste 10 PASSOU")
+
+
+def teste_carga_minima():
+    """Teste 11: Rota com carga abaixo do mínimo gera penalidade."""
+    print("\n=== Teste 11: Carga Mínima ===")
+
+    instancia = criar_instancia_toy()
+    instancia.carga_minima = 20.0  # mínimo de 20 por rota
+
+    # Rota 2: só cliente 1 com demanda 10 < 20 → déficit de 10
+    rotas = [[0, 1, 2, 0], [0, 3, 0]]  # rota 0: carga=25 OK; rota 1: carga=20 == mínimo, OK
+    sol_ok = Solucao(rotas=rotas, instancia=instancia)
+    deficits_ok = sol_ok.verificar_carga_minima(instancia, 20.0)
+    assert deficits_ok == {}, f"Não deveria ter déficit, obtido: {deficits_ok}"
+
+    # Rota com carga 10 < 20
+    rotas_deficit = [[0, 1, 2, 0], [0, 1, 0]]  # segunda rota: carga=10
+    sol_deficit = Solucao(rotas=rotas_deficit, instancia=instancia)
+    deficits = sol_deficit.verificar_carga_minima(instancia, 20.0)
+
+    assert 1 in deficits, "Rota 1 deveria ter déficit"
+    assert abs(deficits[1] - 10.0) < 0.01, f"Déficit esperado 10.0, obtido {deficits[1]}"
+
+    sol_deficit.avaliar(instancia)
+    assert sol_deficit.violacoes["penalidade_carga_minima"] > 0, "Deve haver penalidade de carga mínima"
+
+    print(f"✓ Déficits: {deficits}")
+    print(f"✓ Penalidade carga mínima: {sol_deficit.violacoes['penalidade_carga_minima']:.2f}")
+    print("✓ Teste 11 PASSOU")
+
+
+def teste_factibilidade_infactivel():
+    """Teste 12: Instância infactível levanta ValueError."""
+    print("\n=== Teste 12: Factibilidade Infactível ===")
+
+    df = pd.DataFrame({'lat': [0.0, 1.0], 'lon': [0.0, 0.0], 'valor_total': [0, 9999]})
+    posicoes = [(0.0, 0.0), (1.0, 0.0)]
+    demandas = [0.0, 9999.0]
+
+    # 1 caminhão com capacidade 100 → 9999 > 100 → infactível
+    instancia = Instancia(df=df, posicoes=posicoes, demandas=demandas,
+                          capacidade_caminhao=100, numero_caminhoes=1)
+
+    try:
+        instancia.verificar_factibilidade()
+        assert False, "Deveria ter levantado ValueError"
+    except ValueError as e:
+        assert "infactível" in str(e).lower() or "Infact" in str(e), f"Mensagem inesperada: {e}"
+        print(f"✓ ValueError levantado corretamente: {e}")
+
+    print("✓ Teste 12 PASSOU")
+
+
+def teste_factibilidade_factivel():
+    """Teste 13: Instância factível não levanta exceção."""
+    print("\n=== Teste 13: Factibilidade Factível ===")
+
+    instancia = criar_instancia_toy()
+    instancia.numero_caminhoes = 2
+    # demanda total = 10+15+20 = 45, capacidade total = 30*2 = 60 >= 45
+
+    try:
+        instancia.verificar_factibilidade()
+        print("✓ Nenhuma exceção levantada")
+    except ValueError as e:
+        assert False, f"Não deveria ter levantado exceção: {e}"
+
+    print("✓ Teste 13 PASSOU")
+
+
 def teste_basico():
     """Executa teste básico do main (compatibilidade)."""
     print("\n=== Teste Básico: Main ===")
@@ -231,18 +388,26 @@ def executar_todos_testes():
     print("="*60)
     print("EXECUTANDO TESTES DA FUNÇÃO OBJETIVO")
     print("="*60)
-    
+
     try:
         teste_solucao_viavel()
         teste_solucao_inviavel()
         teste_verificacao_detalhada()
         teste_config_penalizacao()
         teste_heuristica_construtiva()
-        
+        teste_algoritmo_tabu()
+        teste_algoritmo_aco()
+        teste_algoritmo_pso()
+        teste_cobertura()
+        teste_frota()
+        teste_carga_minima()
+        teste_factibilidade_infactivel()
+        teste_factibilidade_factivel()
+
         print("\n" + "="*60)
         print("✓ TODOS OS TESTES PASSARAM!")
         print("="*60)
-        
+
     except AssertionError as e:
         print(f"\n✗ TESTE FALHOU: {e}")
         raise

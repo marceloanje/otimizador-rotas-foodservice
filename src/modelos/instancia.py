@@ -19,7 +19,8 @@ class Instancia:
         Número de clientes (excluindo depósito).
     """
 
-    def __init__(self, df, posicoes, demandas=None, capacidade_caminhao=None):
+    def __init__(self, df, posicoes, demandas=None, capacidade_caminhao=None,
+                 numero_caminhoes=None, carga_minima=0):
         self.df = df
         self.posicoes = posicoes
         self.matriz = None
@@ -28,6 +29,8 @@ class Instancia:
         self.demandas = list(demandas) if demandas is not None else [0.0] * n
         self.capacidade_caminhao = capacidade_caminhao
         self.n_clientes = max(0, n - 1)
+        self.numero_caminhoes = numero_caminhoes
+        self.carga_minima = float(carga_minima)
 
     @classmethod
     def do_csv(cls, path, capacidade_caminhao=None):
@@ -49,7 +52,7 @@ class Instancia:
         capacidade_caminhao : int | None
             Capacidade por caminhão; se None usa o valor padrão de `config.py`.
         """
-        from config import CAPACIDADE_CAMINHAO, DEPOSITO_LAT, DEPOSITO_LON
+        from config import CAPACIDADE_CAMINHAO, NUMERO_CAMINHOES, CARGA_MINIMA_CAMINHAO, DEPOSITO_LAT, DEPOSITO_LON
 
         from geoprocessamento.preprocessamento import limpar_pedidos
         df = limpar_pedidos(
@@ -107,6 +110,8 @@ class Instancia:
             posicoes=posicoes,
             demandas=demandas,
             capacidade_caminhao=capacidade,
+            numero_caminhoes=NUMERO_CAMINHOES,
+            carga_minima=CARGA_MINIMA_CAMINHAO,
         )
 
         if matriz_real is not None:
@@ -130,13 +135,32 @@ class Instancia:
                         np.array(self.posicoes[i]) - np.array(self.posicoes[j])
                     )
 
+    def verificar_factibilidade(self):
+        """Verifica se o problema é matematicamente factível com a frota disponível.
+
+        Levanta ValueError se a demanda total exceder a capacidade total da frota.
+        """
+        if self.capacidade_caminhao is None or self.numero_caminhoes is None:
+            return
+        demanda_total = sum(self.demandas[1:])  # exclui depósito (índice 0)
+        capacidade_total = self.capacidade_caminhao * self.numero_caminhoes
+        if demanda_total > capacidade_total:
+            raise ValueError(
+                f"Instância infactível: demanda total ({demanda_total:.1f}) "
+                f"excede capacidade total da frota "
+                f"({self.numero_caminhoes} caminhões × {self.capacidade_caminhao} = {capacidade_total:.1f}). "
+                f"Ajuste NUMERO_CAMINHOES ou CAPACIDADE_CAMINHAO em config.py."
+            )
+
     def validar(self):
         """Valida consistência básica da instância (CVRP).
 
         Levanta exceções quando tamanhos divergirem, demandas forem inválidas
         ou quando a matriz (se requerida) não estiver presente.
+        Também verifica factibilidade da frota.
         """
         self._validar(requer_matriz=False)
+        self.verificar_factibilidade()
 
     def _validar(self, requer_matriz: bool = False, epsilon: float = 1e-8):
 

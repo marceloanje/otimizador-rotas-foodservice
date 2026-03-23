@@ -5,6 +5,7 @@ import statistics
 import os
 import random
 
+from config import CAPACIDADE_CAMINHAO, NUMERO_CAMINHOES
 from modelos.instancia import Instancia
 from algoritmos.colonia_formigas import ACO
 from algoritmos.busca_tabu import BuscaTabu
@@ -25,10 +26,12 @@ def executar_algoritmo(name, solver_cls, instancia, runs=10, seed_base=42):
         # Garantir que a solução foi avaliada
         if sol.custo_objetivo is None:
             sol.avaliar(instancia)
-        
-        # Verificar se é válida
+
+        # Verificar se é válida (capacidade + cobertura + frota)
         eh_valida = sol.eh_valida(instancia)
         n_violacoes = sol.violacoes.get("capacidade", 0)
+        clientes_faltando = sol.violacoes.get("cobertura", 0)
+        frota_excedida = sol.violacoes.get("frota_excedida", 0)
 
         results.append({
             "run": r,
@@ -38,6 +41,8 @@ def executar_algoritmo(name, solver_cls, instancia, runs=10, seed_base=42):
             "n_veiculos": sol.n_veiculos,
             "eh_valida": eh_valida,
             "n_violacoes": n_violacoes,
+            "clientes_faltando": clientes_faltando,
+            "frota_excedida": frota_excedida,
             "tempo": tempo,
             "meta": getattr(sol, "meta", {})
         })
@@ -50,9 +55,11 @@ def resumir_results(results):
     n_veiculos_list = [r["n_veiculos"] for r in results]
     validas = [r["eh_valida"] for r in results]
     violacoes = [r["n_violacoes"] for r in results]
-    
+    clientes_faltando = [r.get("clientes_faltando", 0) for r in results]
+    frota_excedida = [r.get("frota_excedida", 0) for r in results]
+
     taxa_factivel = sum(validas) / len(validas) if validas else 0.0
-    
+
     return {
         "melhor_custo": float(min(custos)),
         "media_custo": float(statistics.mean(custos)),
@@ -63,6 +70,8 @@ def resumir_results(results):
         "media_veiculos": float(statistics.mean(n_veiculos_list)),
         "taxa_factivel": float(taxa_factivel),
         "media_violacoes": float(statistics.mean(violacoes)),
+        "media_clientes_faltando": float(statistics.mean(clientes_faltando)),
+        "media_frota_excedida": float(statistics.mean(frota_excedida)),
         "tempo_med": float(statistics.mean(tempos))
     }
 
@@ -79,7 +88,8 @@ def comparar(instancia_path=None, runs=10, output_csv=None):
         output_csv = os.path.join(project_root, "resultados_comparacao.csv")
     
     print("Carregando instancia:", instancia_path)
-    instancia = Instancia.do_csv(instancia_path)
+    instancia = Instancia.do_csv(instancia_path, capacidade_caminhao=CAPACIDADE_CAMINHAO)
+    instancia.verificar_factibilidade()  # aborta se demanda total > capacidade da frota
 
     algs = [
         ("ACO", ACO),
@@ -102,9 +112,10 @@ def comparar(instancia_path=None, runs=10, output_csv=None):
         print(f"  Taxa factível: {s['taxa_factivel']*100:.1f}% | Violações médias: {s['media_violacoes']:.1f}")
         print(f"  Tempo médio: {s['tempo_med']:.4f}s")
 
-    keys = ["algoritmo", "melhor_custo", "media_custo", "desvio_custo", 
+    keys = ["algoritmo", "melhor_custo", "media_custo", "desvio_custo",
             "melhor_objetivo", "media_objetivo", "desvio_objetivo",
-            "media_veiculos", "taxa_factivel", "media_violacoes", "tempo_med"]
+            "media_veiculos", "taxa_factivel", "media_violacoes",
+            "media_clientes_faltando", "media_frota_excedida", "tempo_med"]
     with open(output_csv, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=keys)
         writer.writeheader()

@@ -12,7 +12,7 @@ As constantes ficam separadas neste arquivo para facilitar ajustes futuros.
 CAPACIDADE_CAMINHAO = 5000
 
 # Número de caminhões disponíveis na frota
-NUMERO_CAMINHOES = 2
+NUMERO_CAMINHOES = 3
 
 # Carga mínima por caminhão (evitar rotas quase vazias) — 10% da capacidade
 CARGA_MINIMA_CAMINHAO = int(CAPACIDADE_CAMINHAO * 0.10)

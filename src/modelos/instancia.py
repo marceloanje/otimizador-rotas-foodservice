@@ -65,9 +65,6 @@ class Instancia:
             from geoprocessamento.geocodificador import geocodificar_dataframe
             print("Coordenadas não encontradas no CSV. Iniciando geocodificação...")
             df = geocodificar_dataframe(df)
-            # Persistir lat/lon no CSV para evitar regeocificação nas próximas execuções
-            df.to_csv(path, index=False)
-            print(f"Coordenadas salvas em {path}.")
 
         # Descartar linhas onde a geocodificação falhou
         n_antes = len(df)

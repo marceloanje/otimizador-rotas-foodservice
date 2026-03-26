@@ -5,6 +5,7 @@ from modelos.representacao import Representacao
 from modelos.solucao import Solucao
 from modelos.objetivo_config import ObjetivoConfig
 from utilitarios.construtivas import nearest_neighbor_capacitado
+from utilitarios.local_search import two_opt_intra
 
 def split_into_routes(permutation, instancia):
     """
@@ -93,7 +94,8 @@ class PSO:
     def _evaluate_permutation(self, perm):
         """Decodifica a permutação em rotas e avalia a função objetivo."""
         solucao = split_into_routes(perm, self.inst)
-        return solucao.avaliar(self.inst, self.config), solucao
+        solucao = two_opt_intra(solucao, self.inst, self.config)
+        return solucao.custo_objetivo, solucao
 
     def run(self):
         start = time.time()

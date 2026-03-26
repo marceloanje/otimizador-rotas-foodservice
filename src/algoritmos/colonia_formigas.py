@@ -3,6 +3,7 @@ from modelos.representacao import Representacao
 from modelos.solucao import Solucao
 from modelos.objetivo_config import ObjetivoConfig
 from utilitarios.construtivas import nearest_neighbor_capacitado
+from utilitarios.local_search import two_opt_intra
 import random
 
 class ACO:
@@ -66,7 +67,7 @@ class ACO:
             rotas.append(rota)
 
         solucao = Solucao(rotas=rotas, instancia=self.inst)
-        solucao.avaliar(self.inst, self.config)
+        solucao = two_opt_intra(solucao, self.inst, self.config)
         return solucao
 
     def atualizar_feromonio(self, solucoes):

@@ -3,7 +3,7 @@ from modelos.instancia import Instancia
 from comparador import comparar
 
 def main():
-    print("Otimizador de Rotas - Protótipo Inicial")
+    print("Otimizador de Rotas")
 
     # Carregar dados ficticios
     # instancia = Instancia.do_csv("src/dados/pedidos.csv")

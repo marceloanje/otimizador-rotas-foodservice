@@ -118,8 +118,48 @@ class Solucao:
         cv = statistics.pstdev(cargas) / media
         return max(0.0, cv - limiar)
 
+    def verificar_janelas_tempo(self, instancia=None):
+        """Verifica violações de janela de tempo para cada rota (VRPTW).
+
+        Retorna {rota_idx: [(cliente, atraso_min), ...]}. Retorna {} se
+        instancia.matriz_tempos for None ou ausente (degradação graciosa para CVRP puro).
+
+        Early arrival: caminhão espera até a janela abrir.
+        Late arrival: registra atraso = tempo_chegada - janela_fim.
+        """
+        inst = instancia or self.instancia
+        if inst is None:
+            return {}
+        matriz_tempos = getattr(inst, "matriz_tempos", None)
+        janelas_tempo = getattr(inst, "janelas_tempo", None)
+        tempos_servico = getattr(inst, "tempos_servico", None)
+        if any(x is None for x in [matriz_tempos, janelas_tempo, tempos_servico]):
+            return {}
+
+        violacoes = {}
+        for idx, rota in enumerate(self.rotas):
+            tempo_atual = 0.0
+            pos_ant = 0
+            lista = []
+            for node in rota:
+                if node == 0:
+                    continue
+                t_chegada = tempo_atual + float(matriz_tempos[pos_ant][node])
+                ini, fim = janelas_tempo[node]
+                if t_chegada < ini:
+                    tempo_atual = ini + float(tempos_servico[node])        # espera
+                elif t_chegada <= fim:
+                    tempo_atual = t_chegada + float(tempos_servico[node])  # ok
+                else:
+                    lista.append((node, t_chegada - fim))                  # violação
+                    tempo_atual = t_chegada + float(tempos_servico[node])
+                pos_ant = node
+            if lista:
+                violacoes[idx] = lista
+        return violacoes
+
     def eh_valida(self, instancia=None):
-        """True se a solução satisfaz todas as restrições hard: capacidade, cobertura e frota."""
+        """True se a solução satisfaz todas as restrições hard: capacidade, cobertura, frota e janelas de tempo."""
         inst = instancia or self.instancia
 
         violacoes_capacidade = self.verificar_capacidade(inst)
@@ -132,14 +172,18 @@ class Solucao:
             else 0
         )
 
+        violacoes_jt = self.verificar_janelas_tempo(inst)
+        n_violacoes_jt = sum(len(v) for v in violacoes_jt.values())
+
         n_cap = len(violacoes_capacidade)
         self.violacoes = {
             "capacidade": n_cap,
             "cobertura": clientes_faltando,
             "frota_excedida": frota_excedida,
+            "janela_tempo": n_violacoes_jt,
         }
 
-        return n_cap == 0 and clientes_faltando == 0 and frota_excedida == 0
+        return n_cap == 0 and clientes_faltando == 0 and frota_excedida == 0 and n_violacoes_jt == 0
 
     def avaliar(self, instancia=None, config=None):
         """Calcula a função objetivo: distância total + penalidades por violações.
@@ -182,6 +226,10 @@ class Solucao:
         excesso_cv = self.verificar_desequilibrio_carga(inst, getattr(config, "limiar_desequilibrio", 0.3))
         penalidade_desequilibrio = config.calcular_penalidade_desequilibrio(excesso_cv)
 
+        # Janelas de tempo — soft constraint (ativo apenas se matriz_tempos presente)
+        violacoes_jt = self.verificar_janelas_tempo(inst)
+        penalidade_janela_tempo = config.calcular_penalidade_janela_tempo(violacoes_jt)
+
         custo_objetivo = (
             custo_distancia
             + penalidade_capacidade
@@ -189,6 +237,7 @@ class Solucao:
             + penalidade_cobertura
             + penalidade_carga_minima
             + penalidade_desequilibrio
+            + penalidade_janela_tempo
         )
 
         self.custo_objetivo = custo_objetivo
@@ -203,6 +252,8 @@ class Solucao:
             "penalidade_carga_minima": penalidade_carga_minima,
             "desequilibrio_cv_excesso": excesso_cv,
             "penalidade_desequilibrio": penalidade_desequilibrio,
+            "janela_tempo_violacoes": violacoes_jt,
+            "penalidade_janela_tempo": penalidade_janela_tempo,
         }
 
         return custo_objetivo

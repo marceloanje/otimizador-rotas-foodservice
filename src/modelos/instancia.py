@@ -24,6 +24,9 @@ class Instancia:
         self.df = df
         self.posicoes = posicoes
         self.matriz = None
+        self.janelas_tempo  = None  # list[tuple[int,int]] — (inicio, fim) por nó, em minutos
+        self.tempos_servico = None  # list[int] — tempo de atendimento por nó, em minutos
+        self.matriz_tempos  = None  # np.ndarray n×n — tempos de viagem em minutos
 
         n = len(posicoes)
         self.demandas = list(demandas) if demandas is not None else [0.0] * n
@@ -81,14 +84,19 @@ class Instancia:
             deposito_row["valor_total"] = 0.0
         df = pd.concat([pd.DataFrame([deposito_row]), df], ignore_index=True)
 
+        # Gerar janelas de tempo sintéticas (idempotente se colunas já existirem)
+        from geoprocessamento.preprocessamento import gerar_janelas_tempo
+        df = gerar_janelas_tempo(df)
+
         posicoes = list(zip(df["lat"].astype(float), df["lon"].astype(float)))
 
         # Tentar obter matriz real via OSRM
+        matriz_tempos_osrm = None
         try:
             from geoprocessamento.integracao_osrm import obter_matriz_osrm
-            print("Calculando matriz de distâncias via OSRM...")
-            matriz_real = obter_matriz_osrm(posicoes)
-            print(f"Matriz OSRM obtida: shape {matriz_real.shape}, unidade: metros.")
+            print("Calculando matrizes de distâncias e tempos via OSRM...")
+            matriz_real, matriz_tempos_osrm = obter_matriz_osrm(posicoes)
+            print(f"Matrizes OSRM obtidas: shape {matriz_real.shape}, distâncias em metros, tempos em minutos.")
         except Exception as e:
             print(f"AVISO: OSRM indisponível ({e}). Usando matriz euclidiana como fallback.")
             matriz_real = None
@@ -113,11 +121,30 @@ class Instancia:
 
         if matriz_real is not None:
             instancia.matriz = matriz_real
+            if matriz_tempos_osrm is not None:
+                instancia.matriz_tempos = matriz_tempos_osrm
+            else:
+                # OSRM retornou apenas distâncias — estimar tempos a 40 km/h
+                instancia.matriz_tempos = matriz_real / (40_000 / 60)  # m → min
         else:
             instancia.gerar_matriz_distancias_ficticia()
+            instancia.matriz_tempos = instancia.gerar_matriz_tempos_ficticia()
+
+        instancia.janelas_tempo  = list(zip(
+            df["janela_inicio"].astype(int), df["janela_fim"].astype(int)
+        ))
+        instancia.tempos_servico = df["tempo_servico"].astype(int).tolist()
 
         instancia.validar()
         return instancia
+
+    def gerar_matriz_tempos_ficticia(self):
+        """Proxy de tempos a partir da matriz euclidiana (graus → minutos a 40 km/h em BH).
+
+        1 grau ≈ 111 km; 111 km / 40 km/h × 60 min/h = 166,5 min/grau.
+        Deve ser chamado após gerar_matriz_distancias_ficticia().
+        """
+        return self.matriz * 166.5
 
     def gerar_matriz_distancias_ficticia(self):
         n = len(self.posicoes)

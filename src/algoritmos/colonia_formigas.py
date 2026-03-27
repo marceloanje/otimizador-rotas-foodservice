@@ -24,14 +24,21 @@ class ACO:
         self.feromonio = np.ones((self.n, self.n))
 
     def construir_solucao(self):
-        """Constrói uma solução CVRP completa usando feromônios para guiar a construção."""
+        """Constrói uma solução CVRP/VRPTW completa usando feromônios para guiar a construção."""
         deposito = 0
         nao_visitados = set(range(1, self.n))
         rotas = []
 
+        # Atributos opcionais para VRPTW (graceful degradation se ausentes)
+        matriz_tempos = getattr(self.inst, "matriz_tempos", None)
+        janelas_tempo = getattr(self.inst, "janelas_tempo", None)
+        tempos_servico = getattr(self.inst, "tempos_servico", None)
+        usar_janelas = all(x is not None for x in [matriz_tempos, janelas_tempo, tempos_servico])
+
         while nao_visitados:
             rota = [deposito]
             carga_atual = 0.0
+            tempo_atual = 0.0
             posicao_atual = deposito
 
             while nao_visitados:
@@ -46,6 +53,13 @@ class ACO:
                     distancia = self.matriz[posicao_atual][j] or 0.0001
                     tau = self.feromonio[posicao_atual][j] ** self.alpha
                     eta = (1.0 / distancia) ** self.beta
+
+                    # Heurística de janela de tempo: desencoraja chegadas após fechamento
+                    if usar_janelas:
+                        t_chegada = tempo_atual + float(matriz_tempos[posicao_atual][j])
+                        if t_chegada > janelas_tempo[j][1]:
+                            eta *= 0.1
+
                     probabilidades.append(tau * eta)
 
                 probabilidades = np.array(probabilidades)
@@ -60,6 +74,13 @@ class ACO:
 
                 rota.append(proximo)
                 carga_atual += self.demandas[proximo]
+
+                # Atualizar tempo acumulado (considera espera em early arrival)
+                if usar_janelas:
+                    t_ch = tempo_atual + float(matriz_tempos[posicao_atual][proximo])
+                    ini_p = janelas_tempo[proximo][0]
+                    tempo_atual = max(t_ch, ini_p) + float(tempos_servico[proximo])
+
                 posicao_atual = proximo
                 nao_visitados.remove(proximo)
 

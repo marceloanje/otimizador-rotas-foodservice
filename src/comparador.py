@@ -27,11 +27,18 @@ def executar_algoritmo(name, solver_cls, instancia, runs=10, seed_base=42):
         if sol.custo_objetivo is None:
             sol.avaliar(instancia)
 
-        # Verificar se é válida (capacidade + cobertura + frota)
+        # Verificar se é válida (capacidade + cobertura + frota + janelas de tempo)
         eh_valida = sol.eh_valida(instancia)
         n_violacoes = sol.violacoes.get("capacidade", 0)
         clientes_faltando = sol.violacoes.get("cobertura", 0)
         frota_excedida = sol.violacoes.get("frota_excedida", 0)
+
+        # Métricas VRPTW (ativas apenas se instancia tiver matriz_tempos)
+        n_violacoes_jt, total_atraso_jt = 0, 0.0
+        if getattr(instancia, "matriz_tempos", None) is not None:
+            vjt = sol.verificar_janelas_tempo(instancia)
+            n_violacoes_jt = sum(len(v) for v in vjt.values())
+            total_atraso_jt = sum(a for lst in vjt.values() for (_, a) in lst)
 
         results.append({
             "run": r,
@@ -43,6 +50,8 @@ def executar_algoritmo(name, solver_cls, instancia, runs=10, seed_base=42):
             "n_violacoes": n_violacoes,
             "clientes_faltando": clientes_faltando,
             "frota_excedida": frota_excedida,
+            "n_violacoes_jt": n_violacoes_jt,
+            "total_atraso_jt": total_atraso_jt,
             "tempo": tempo,
             "meta": getattr(sol, "meta", {})
         })
@@ -59,6 +68,8 @@ def resumir_results(results):
     frota_excedida = [r.get("frota_excedida", 0) for r in results]
 
     taxa_factivel = sum(validas) / len(validas) if validas else 0.0
+    violacoes_jt_list = [r.get("n_violacoes_jt", 0) for r in results]
+    atraso_jt_list    = [r.get("total_atraso_jt", 0.0) for r in results]
 
     return {
         "melhor_custo": float(min(custos)),
@@ -72,6 +83,8 @@ def resumir_results(results):
         "media_violacoes": float(statistics.mean(violacoes)),
         "media_clientes_faltando": float(statistics.mean(clientes_faltando)),
         "media_frota_excedida": float(statistics.mean(frota_excedida)),
+        "media_violacoes_jt": float(statistics.mean(violacoes_jt_list)),
+        "media_atraso_jt": float(statistics.mean(atraso_jt_list)),
         "tempo_med": float(statistics.mean(tempos))
     }
 
@@ -110,12 +123,14 @@ def comparar(instancia_path=None, runs=10, output_csv=None):
         print(f"  Média objetivo: {s['media_objetivo']:.2f} (±{s['desvio_objetivo']:.2f})")
         print(f"  Média veículos: {s['media_veiculos']:.1f}")
         print(f"  Taxa factível: {s['taxa_factivel']*100:.1f}% | Violações médias: {s['media_violacoes']:.1f}")
+        print(f"  JT violações médias: {s['media_violacoes_jt']:.1f} | Atraso médio: {s['media_atraso_jt']:.1f} min")
         print(f"  Tempo médio: {s['tempo_med']:.4f}s")
 
     keys = ["algoritmo", "melhor_custo", "media_custo", "desvio_custo",
             "melhor_objetivo", "media_objetivo", "desvio_objetivo",
             "media_veiculos", "taxa_factivel", "media_violacoes",
-            "media_clientes_faltando", "media_frota_excedida", "tempo_med"]
+            "media_clientes_faltando", "media_frota_excedida",
+            "media_violacoes_jt", "media_atraso_jt", "tempo_med"]
     with open(output_csv, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=keys)
         writer.writeheader()

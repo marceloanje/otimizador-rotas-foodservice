@@ -66,3 +66,51 @@ def limpar_pedidos(path_entrada: str, path_saida: str | None = None) -> pd.DataF
         print(f"Dados limpos salvos em: {path_saida}")
 
     return df
+
+
+def gerar_janelas_tempo(df, seed=42):
+    """Gera janelas de tempo sintéticas para VRPTW.
+
+    O DataFrame deve ter o depósito na linha 0 já inserido.
+    Turnos disponíveis (em minutos desde meia-noite):
+      - Manhã : [480, 720]  (08:00–12:00)
+      - Tarde  : [780, 1020] (13:00–17:00)
+    Tempo de serviço por cliente: 15–30 minutos (aleatório).
+
+    Idempotente: retorna df inalterado se as colunas já existirem.
+
+    Parâmetros
+    ----------
+    df : pd.DataFrame
+        DataFrame com depósito em df.iloc[0].
+    seed : int
+        Semente para reprodutibilidade.
+
+    Retorna
+    -------
+    pd.DataFrame
+        df com colunas 'janela_inicio', 'janela_fim' e 'tempo_servico'.
+    """
+    if "janela_inicio" in df.columns:
+        return df
+
+    import random as _rnd
+    rng = _rnd.Random(seed)
+    n = len(df)
+    turnos = [(480, 720), (780, 1020)]
+
+    janela_inicio = [0]    # depósito
+    janela_fim    = [1440]  # depósito (fim do dia)
+    tempo_servico = [0]    # depósito
+
+    for _ in range(n - 1):
+        ini, fim = rng.choice(turnos)
+        janela_inicio.append(ini)
+        janela_fim.append(fim)
+        tempo_servico.append(rng.randint(15, 30))
+
+    df = df.copy()
+    df["janela_inicio"] = janela_inicio
+    df["janela_fim"]    = janela_fim
+    df["tempo_servico"] = tempo_servico
+    return df

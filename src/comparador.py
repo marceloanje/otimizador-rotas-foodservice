@@ -107,14 +107,19 @@ def comparar(instancia_path=None, runs=10, output_csv=None):
     algs = [
         ("ACO", ACO),
         ("Tabu", BuscaTabu),
-        ("PSO", PSO)
+        ("PSO", PSO),
     ]
+
+    if instancia.n_clientes <= 20:
+        from algoritmos.solver_exato import SolverExato
+        algs.append(("Exato", SolverExato))
 
     summary = []
 
     for name, cls in algs:
-        print(f"\nExecutando {name} por {runs} rodadas...")
-        results = executar_algoritmo(name, cls, instancia, runs=runs)
+        n_runs = 1 if name == "Exato" else runs
+        print(f"\nExecutando {name} por {n_runs} rodadas...")
+        results = executar_algoritmo(name, cls, instancia, runs=n_runs)
         s = resumir_results(results)
         s["algoritmo"] = name
         summary.append(s)

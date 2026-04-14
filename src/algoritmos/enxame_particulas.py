@@ -117,6 +117,8 @@ class PSO:
         gbest_cost = pbest_costs[gbest_idx]
         gbest_solucao = solucoes[gbest_idx]
 
+        historico = []
+
         for it in range(self.max_iter):
             for i in range(self.n_particles):
                 current = particles[i]
@@ -155,8 +157,15 @@ class PSO:
                         gbest_cost = cost
                         gbest_solucao = sol
 
+            historico.append(gbest_cost)
+
         elapsed = time.time() - start
         gbest_solucao.tempo_computacional = elapsed
-        gbest_solucao.meta = {"tempo": elapsed, "iter": self.max_iter}
+        gbest_solucao.meta = {
+            "tempo": elapsed,
+            "iter": self.max_iter,
+            "historico_convergencia": historico,
+            "max_iter": self.max_iter,
+        }
 
         return gbest_solucao

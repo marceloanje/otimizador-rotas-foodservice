@@ -130,6 +130,7 @@ class BuscaTabu:
         # lista tabu: move_id → tenure restante
         tabu = dict()
         iter_no_improve = 0
+        historico = []
 
         for it in range(self.max_iter):
             neighborhood_best, neighborhood_best_cost, neighborhood_best_move = \
@@ -156,10 +157,17 @@ class BuscaTabu:
             else:
                 iter_no_improve += 1
 
+            historico.append(best_cost)
+
             if iter_no_improve >= self.max_no_improve:
                 break
 
         elapsed = time.time() - start
         best.tempo_computacional = elapsed
-        best.meta = {"tempo": elapsed, "iter": it+1}
+        best.meta = {
+            "tempo": elapsed,
+            "iter": it+1,
+            "historico_convergencia": historico,
+            "max_iter": self.max_iter,
+        }
         return best

@@ -110,6 +110,7 @@ class ACO:
         """Executa o algoritmo ACO para CVRP."""
         melhor_solucao = None
         melhor_custo_objetivo = float("inf")
+        historico = []
 
         for _ in range(self.iter):
             solucoes = []
@@ -123,5 +124,11 @@ class ACO:
                     melhor_custo_objetivo = solucao.custo_objetivo
 
             self.atualizar_feromonio(solucoes)
+            historico.append(melhor_custo_objetivo)
 
+        if melhor_solucao is not None:
+            if melhor_solucao.meta is None:
+                melhor_solucao.meta = {}
+            melhor_solucao.meta["historico_convergencia"] = historico
+            melhor_solucao.meta["max_iter"] = self.iter
         return melhor_solucao

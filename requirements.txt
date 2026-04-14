@@ -3,6 +3,7 @@ numpy
 networkx
 ortools
 matplotlib
+scipy
 aco
 geopy
 requests

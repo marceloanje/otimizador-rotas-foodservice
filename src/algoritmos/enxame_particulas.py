@@ -5,33 +5,52 @@ from modelos.representacao import Representacao
 from modelos.solucao import Solucao
 from modelos.objetivo_config import ObjetivoConfig
 from utilitarios.construtivas import nearest_neighbor_capacitado
-from utilitarios.local_search import two_opt_intra
+from utilitarios.local_search import two_opt_intra, busca_local
 
 def split_into_routes(permutation, instancia):
     """
-    Divide um giant tour (permutação de clientes) em rotas viáveis respeitando capacidade.
+    Divide um giant tour (permutação de clientes) em rotas respeitando
+    capacidade e, se disponíveis, janelas de tempo (VRPTW).
 
-    É a função de decodificação usada pelo PSO: a posição de cada partícula
-    é uma permutação, e esse split transforma em rotas concretas.
+    Fecha a rota atual quando o próximo cliente violaria capacidade OU
+    a janela de tempo (chegada estimada após `janela_fim`).
     """
     deposito = 0
     demandas = instancia.demandas
     capacidade = instancia.capacidade_caminhao
+    matriz_tempos = getattr(instancia, "matriz_tempos", None)
+    janelas = getattr(instancia, "janelas_tempo", None)
+    tempos_servico = getattr(instancia, "tempos_servico", None)
+    usar_janelas = all(x is not None for x in [matriz_tempos, janelas, tempos_servico])
 
     rotas = []
     rota_atual = [deposito]
     carga_atual = 0.0
+    tempo_atual = 0.0
+    pos_ant = deposito
 
     for cliente in permutation:
         demanda_cliente = demandas[cliente]
-        if carga_atual + demanda_cliente > capacidade:
+        viola_cap = carga_atual + demanda_cliente > capacidade
+        viola_tw = False
+        if usar_janelas:
+            t_ch = tempo_atual + float(matriz_tempos[pos_ant][cliente])
+            viola_tw = t_ch > janelas[cliente][1]
+
+        if (viola_cap or viola_tw) and len(rota_atual) > 1:
             rota_atual.append(deposito)
             rotas.append(rota_atual)
             rota_atual = [deposito]
             carga_atual = 0.0
+            tempo_atual = 0.0
+            pos_ant = deposito
 
         rota_atual.append(cliente)
         carga_atual += demanda_cliente
+        if usar_janelas:
+            t_ch = tempo_atual + float(matriz_tempos[pos_ant][cliente])
+            tempo_atual = max(t_ch, janelas[cliente][0]) + float(tempos_servico[cliente])
+            pos_ant = cliente
 
     if len(rota_atual) > 1:
         rota_atual.append(deposito)
@@ -83,7 +102,11 @@ class PSO:
         self.c2 = c2        # peso social (atração ao gbest)
         self.inertia = inertia
 
-        self.config = config if config is not None else ObjetivoConfig(matriz=self.matriz)
+        self.config = config if config is not None else ObjetivoConfig(
+            matriz=self.matriz,
+            numero_caminhoes=getattr(instancia, "numero_caminhoes", None),
+            n_clientes=getattr(instancia, "n_clientes", None),
+        )
 
     def _random_perm(self):
         """Permutação aleatória dos clientes (sem depósito)."""
@@ -158,6 +181,11 @@ class PSO:
                         gbest_solucao = sol
 
             historico.append(gbest_cost)
+
+        # Polimento final: busca local (2-opt + relocate) apenas na melhor.
+        gbest_solucao = busca_local(gbest_solucao, self.inst, self.config, passes=2)
+        gbest_cost = gbest_solucao.custo_objetivo
+        historico.append(gbest_cost)
 
         elapsed = time.time() - start
         gbest_solucao.tempo_computacional = elapsed

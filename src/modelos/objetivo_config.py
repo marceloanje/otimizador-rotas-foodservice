@@ -6,11 +6,20 @@ viáveis e inviáveis durante a busca metaheurística.
 
 Penalidades implementadas
 --------------------------
+Hard constraints (ativas por padrão):
 - Capacidade       : proporcional ao excesso de carga por rota
 - Frota            : proporcional ao número de veículos ACIMA do limite
 - Cobertura        : por cliente não visitado (calibrada para dominar todas as outras)
+- Janela de tempo  : proporcional ao atraso total (VRPTW, se matriz_tempos presente)
+
+Soft goals (DESATIVADAS por padrão — peso=0):
 - Carga mínima     : proporcional ao déficit de carga em rotas quase vazias
 - Desequilíbrio    : baseado no coeficiente de variação da carga entre rotas
+
+Os soft goals ficam desativados porque o solver exato (OR-Tools) otimiza
+distância pura e não os considera; ativá-los criaria viés na comparação
+meta-heurísticas vs exato. Para ativá-los, passe `peso_carga_minima` e
+`peso_desequilibrio` explicitamente ao construtor.
 """
 
 
@@ -82,11 +91,13 @@ class ObjetivoConfig:
         self.peso_cobertura = (
             float(peso_cobertura) if peso_cobertura is not None else max_dist * 100.0 * nc
         )
+        # Soft goals desativados por padrão (peso=0) para não enviesar a
+        # comparação contra o solver exato, que otimiza apenas distância.
         self.peso_carga_minima = (
-            float(peso_carga_minima) if peso_carga_minima is not None else max_dist * 10.0
+            float(peso_carga_minima) if peso_carga_minima is not None else 0.0
         )
         self.peso_desequilibrio = (
-            float(peso_desequilibrio) if peso_desequilibrio is not None else max_dist * float(nc)
+            float(peso_desequilibrio) if peso_desequilibrio is not None else 0.0
         )
         self.peso_janela_tempo = (
             float(peso_janela_tempo) if peso_janela_tempo is not None else max_dist * 2.0

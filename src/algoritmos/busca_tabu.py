@@ -9,7 +9,8 @@ import copy
 
 class BuscaTabu:
     def __init__(self, instancia, max_iter=500, tabu_tenure=15, max_no_improve=100,
-                 config=None, estrategia='sample', max_vizinhos=200):
+                 config=None, estrategia='sample', max_vizinhos=200,
+                 shake_inicial=10):
         self.inst = instancia
         self.matriz = instancia.matriz
         self.n = len(self.matriz)
@@ -21,12 +22,44 @@ class BuscaTabu:
         self.max_no_improve = max_no_improve
         self.estrategia = estrategia
         self.max_vizinhos = max_vizinhos
+        self.shake_inicial = shake_inicial
 
-        self.config = config if config is not None else ObjetivoConfig(matriz=self.matriz)
+        self.config = config if config is not None else ObjetivoConfig(
+            matriz=self.matriz,
+            numero_caminhoes=getattr(instancia, "numero_caminhoes", None),
+            n_clientes=getattr(instancia, "n_clientes", None),
+        )
 
     def _solucao_inicial(self):
-        """Gera solução inicial usando heurística construtiva."""
-        return nearest_neighbor_capacitado(self.inst)
+        """Gera solução inicial NN e aplica perturbação aleatória (shake).
+
+        O NN é determinístico; a perturbação injeta diversidade entre runs
+        diferentes (semente propagada via `random`), dando trajetórias
+        distintas e permitindo análise estatística significativa.
+        """
+        sol = nearest_neighbor_capacitado(self.inst)
+        for _ in range(self.shake_inicial):
+            sol = self._perturbar(sol)
+        return sol
+
+    def _perturbar(self, solucao):
+        """Aplica um único swap aleatório entre duas rotas, se válido em capacidade."""
+        rotas_validas = [i for i, r in enumerate(solucao.rotas) if len(r) > 3]
+        if len(rotas_validas) < 2:
+            return solucao
+        i, j = random.sample(rotas_validas, 2)
+        rota_i = solucao.rotas[i]
+        rota_j = solucao.rotas[j]
+        p1 = random.randint(1, len(rota_i) - 2)
+        p2 = random.randint(1, len(rota_j) - 2)
+        c1, c2 = rota_i[p1], rota_j[p2]
+        nova_carga_i = sum(self.demandas[n] for n in rota_i if n != 0) - self.demandas[c1] + self.demandas[c2]
+        nova_carga_j = sum(self.demandas[n] for n in rota_j if n != 0) - self.demandas[c2] + self.demandas[c1]
+        if nova_carga_i > self.capacidade or nova_carga_j > self.capacidade:
+            return solucao
+        novas = [r[:] for r in solucao.rotas]
+        novas[i][p1], novas[j][p2] = c2, c1
+        return Solucao(rotas=novas, instancia=self.inst)
 
     def _avaliar_solucao(self, solucao):
         """Avalia solução usando função objetivo com penalidades."""

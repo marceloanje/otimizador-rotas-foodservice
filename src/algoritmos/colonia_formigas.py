@@ -3,7 +3,7 @@ from modelos.representacao import Representacao
 from modelos.solucao import Solucao
 from modelos.objetivo_config import ObjetivoConfig
 from utilitarios.construtivas import nearest_neighbor_capacitado
-from utilitarios.local_search import two_opt_intra
+from utilitarios.local_search import two_opt_intra, busca_local
 import random
 
 class ACO:
@@ -20,7 +20,11 @@ class ACO:
         self.beta = beta
         self.evaporacao = evaporacao
 
-        self.config = config if config is not None else ObjetivoConfig(matriz=self.matriz)
+        self.config = config if config is not None else ObjetivoConfig(
+            matriz=self.matriz,
+            numero_caminhoes=getattr(instancia, "numero_caminhoes", None),
+            n_clientes=getattr(instancia, "n_clientes", None),
+        )
         self.feromonio = np.ones((self.n, self.n))
 
     def construir_solucao(self):
@@ -42,24 +46,37 @@ class ACO:
             posicao_atual = deposito
 
             while nao_visitados:
-                candidatos = [c for c in nao_visitados
-                              if carga_atual + self.demandas[c] <= self.capacidade]
+                candidatos_cap = [c for c in nao_visitados
+                                  if carga_atual + self.demandas[c] <= self.capacidade]
 
-                if not candidatos:
+                if not candidatos_cap:
                     break
+
+                # Filtro hard de janela de tempo: cliente só é candidato se a
+                # chegada estimada couber dentro da janela. Se nenhum cliente
+                # couber e a rota não está vazia, fecha a rota (break). Se a
+                # rota estiver vazia (só depósito), aceita o melhor possível
+                # para não deixar cliente órfão (a penalidade será avaliada).
+                if usar_janelas:
+                    candidatos_tw = []
+                    for c in candidatos_cap:
+                        t_ch = tempo_atual + float(matriz_tempos[posicao_atual][c])
+                        if t_ch <= janelas_tempo[c][1]:
+                            candidatos_tw.append(c)
+                    if candidatos_tw:
+                        candidatos = candidatos_tw
+                    elif len(rota) == 1:
+                        candidatos = candidatos_cap
+                    else:
+                        break
+                else:
+                    candidatos = candidatos_cap
 
                 probabilidades = []
                 for j in candidatos:
                     distancia = self.matriz[posicao_atual][j] or 0.0001
                     tau = self.feromonio[posicao_atual][j] ** self.alpha
                     eta = (1.0 / distancia) ** self.beta
-
-                    # Heurística de janela de tempo: desencoraja chegadas após fechamento
-                    if usar_janelas:
-                        t_chegada = tempo_atual + float(matriz_tempos[posicao_atual][j])
-                        if t_chegada > janelas_tempo[j][1]:
-                            eta *= 0.1
-
                     probabilidades.append(tau * eta)
 
                 probabilidades = np.array(probabilidades)
@@ -127,6 +144,10 @@ class ACO:
             historico.append(melhor_custo_objetivo)
 
         if melhor_solucao is not None:
+            # Polimento final: busca local mais cara (2-opt + relocate) só na
+            # melhor solução
+            melhor_solucao = busca_local(melhor_solucao, self.inst, self.config, passes=2)
+            historico.append(melhor_solucao.custo_objetivo)
             if melhor_solucao.meta is None:
                 melhor_solucao.meta = {}
             melhor_solucao.meta["historico_convergencia"] = historico

@@ -270,11 +270,13 @@ def comparar_multi_instancia():
             print(f"    custo_exato={s_ex['melhor_objetivo']:.2f}  "
                   f"tempo={s_ex['tempo_med']:.2f}s")
 
-            custo_exato = s_ex["melhor_objetivo"]
+            # Gap em relação ao ótimo usa `melhor_custo` (distância pura):
+            # é a métrica que o solver exato otimiza
+            custo_exato = s_ex["melhor_custo"]
             if custo_exato and custo_exato > 0:
                 for row in resumo_rows:
                     if row["instancia"] == nome and row["algoritmo"] != "Exato":
-                        row["gap_exato"] = 100.0 * (row["melhor_objetivo"] - custo_exato) / custo_exato
+                        row["gap_exato"] = 100.0 * (row["melhor_custo"] - custo_exato) / custo_exato
 
         for alg_name, results in runs_por_alg.items():
             for r in results:

@@ -19,6 +19,7 @@ import csv
 import statistics
 import os
 import random
+import pickle
 
 from scipy import stats
 
@@ -32,6 +33,15 @@ from utilitarios.graficos_experimento import (
     plotar_convergencia,
     plotar_boxplot_custos,
     plotar_tempo_execucao,
+    plotar_convergencia_tempo,
+    plotar_time_to_target,
+    plotar_violino_custos,
+    plotar_scatter_custo_tempo,
+    plotar_heatmap_gap,
+    plotar_gantt_rota,
+    plotar_utilizacao_capacidade,
+    plotar_stacked_veiculos,
+    plotar_heatmap_pvalores,
 )
 
 
@@ -92,6 +102,7 @@ def executar_algoritmo(name, solver_cls, instancia, runs, seed_base, solver_kwar
             "frota_excedida": frota_excedida,
             "n_violacoes_jt": n_violacoes_jt,
             "total_atraso_jt": total_atraso_jt,
+            "solucao": sol,
             "tempo": tempo,
             "historico": historico,
             "max_iter": max_iter,
@@ -211,6 +222,8 @@ def comparar_multi_instancia():
     fig_dir = os.path.join(out_dir, "figuras")
     _ensure_dir(out_dir)
     _ensure_dir(fig_dir)
+    sol_dir = os.path.join(out_dir, "solucoes")
+    _ensure_dir(sol_dir)
 
     runs_raw_rows = []
     resumo_rows = []
@@ -242,6 +255,9 @@ def comparar_multi_instancia():
             results = executar_algoritmo(alg_name, alg_cls, instancia,
                                          runs=N_RUNS, seed_base=SEED_BASE)
             runs_por_alg[alg_name] = results
+            melhor_run = min(results, key=lambda r: r["custo_objetivo"])
+            with open(os.path.join(sol_dir, f"{nome}__{alg_name}.pkl"), "wb") as _f:
+                pickle.dump(melhor_run["solucao"], _f)
             s = resumir_results(results)
             s["instancia"] = nome
             s["algoritmo"] = alg_name
@@ -261,6 +277,9 @@ def comparar_multi_instancia():
                 solver_kwargs={"tempo_limite": tempo_limite_exato},
             )
             runs_por_alg["Exato"] = ex_results
+            melhor_ex = min(ex_results, key=lambda r: r["custo_objetivo"])
+            with open(os.path.join(sol_dir, f"{nome}__Exato.pkl"), "wb") as _f:
+                pickle.dump(melhor_ex["solucao"], _f)
             s_ex = resumir_results(ex_results)
             s_ex["instancia"] = nome
             s_ex["algoritmo"] = "Exato"
@@ -299,8 +318,13 @@ def comparar_multi_instancia():
 
                 hist = r["historico"]
                 max_it = r["max_iter"] or len(hist)
-                for it_idx, melhor in enumerate(hist):
-                    iter_num = it_idx + 1
+                for it_idx, item in enumerate(hist):
+                    if isinstance(item, (tuple, list)):
+                        iter_num, melhor, t_s = item[0], item[1], item[2]
+                    else:
+                        iter_num = it_idx + 1
+                        melhor = item
+                        t_s = ""
                     iter_frac = iter_num / max_it if max_it else 0.0
                     convergencia_rows.append({
                         "instancia": nome,
@@ -309,10 +333,12 @@ def comparar_multi_instancia():
                         "iteracao": iter_num,
                         "iter_frac": iter_frac,
                         "melhor_custo_objetivo": melhor,
+                        "tempo_s": t_s,
                     })
 
         runs_heur = {a: runs_por_alg[a] for a, _ in ALGORITMOS_HEURISTICOS if a in runs_por_alg}
-        estatisticas_rows.extend(analise_estatistica(runs_heur, nome))
+        estatisticas_inst = analise_estatistica(runs_heur, nome)
+        estatisticas_rows.extend(estatisticas_inst)
 
         print(f"\n  Gerando figuras da instância '{nome}'...")
         convergencia_por_alg = {
@@ -332,6 +358,48 @@ def comparar_multi_instancia():
             custos_finais, nome,
             os.path.join(fig_dir, f"boxplot_{nome}.png"),
         )
+
+        todos_objetivos = [r["custo_objetivo"] for res in runs_por_alg.values() for r in res]
+        alvo_custo = 1.05 * min(todos_objetivos) if todos_objetivos else None
+
+        plotar_convergencia_tempo(
+            convergencia_por_alg, nome,
+            os.path.join(fig_dir, f"convergencia_tempo_{nome}.png"),
+        )
+        if alvo_custo is not None:
+            plotar_time_to_target(
+                convergencia_por_alg, alvo_custo, nome,
+                os.path.join(fig_dir, f"time_to_target_{nome}.png"),
+            )
+        plotar_violino_custos(
+            custos_finais, nome,
+            os.path.join(fig_dir, f"violino_{nome}.png"),
+        )
+        tempos_finais = {
+            alg: [r["tempo"] for r in results]
+            for alg, results in runs_heur.items()
+        }
+        plotar_scatter_custo_tempo(
+            tempos_finais, custos_finais, nome,
+            os.path.join(fig_dir, f"scatter_custo_tempo_{nome}.png"),
+        )
+        plotar_heatmap_pvalores(
+            estatisticas_inst, nome,
+            os.path.join(fig_dir, f"pvalores_{nome}.png"),
+        )
+        for alg_n in runs_por_alg:
+            pkl_path = os.path.join(sol_dir, f"{nome}__{alg_n}.pkl")
+            if os.path.exists(pkl_path):
+                with open(pkl_path, "rb") as _f:
+                    melhor_sol = pickle.load(_f)
+                plotar_gantt_rota(
+                    melhor_sol, instancia,
+                    os.path.join(fig_dir, f"gantt_{nome}__{alg_n}.png"),
+                )
+                plotar_utilizacao_capacidade(
+                    melhor_sol, instancia,
+                    os.path.join(fig_dir, f"utilizacao_{nome}__{alg_n}.png"),
+                )
 
     print("\nEscrevendo CSVs...")
     _escrever_csv(
@@ -361,7 +429,7 @@ def comparar_multi_instancia():
     _escrever_csv(
         os.path.join(out_dir, "resultados_convergencia.csv"),
         convergencia_rows,
-        fieldnames=["instancia", "algoritmo", "run", "iteracao", "iter_frac", "melhor_custo_objetivo"],
+        fieldnames=["instancia", "algoritmo", "run", "iteracao", "iter_frac", "melhor_custo_objetivo", "tempo_s"],
     )
     _escrever_csv(
         os.path.join(out_dir, "resultados_estatisticas.csv"),
@@ -377,6 +445,8 @@ def comparar_multi_instancia():
         tempos_por_inst_alg,
         os.path.join(fig_dir, "tempos.png"),
     )
+    plotar_heatmap_gap(resumo_rows, os.path.join(fig_dir, "heatmap_gap.png"))
+    plotar_stacked_veiculos(resumo_rows, os.path.join(fig_dir, "stacked_veiculos.png"))
 
     print(f"\nResultados salvos em: {out_dir}")
     print(f"Figuras salvas em:    {fig_dir}")

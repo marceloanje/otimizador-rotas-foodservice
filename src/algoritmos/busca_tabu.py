@@ -190,7 +190,7 @@ class BuscaTabu:
             else:
                 iter_no_improve += 1
 
-            historico.append(best_cost)
+            historico.append((it+1, best_cost, time.time() - start))
 
             if iter_no_improve >= self.max_no_improve:
                 break

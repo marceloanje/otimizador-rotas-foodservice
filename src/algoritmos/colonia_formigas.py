@@ -5,6 +5,7 @@ from modelos.objetivo_config import ObjetivoConfig
 from utilitarios.construtivas import nearest_neighbor_capacitado
 from utilitarios.local_search import two_opt_intra, busca_local
 import random
+import time
 
 class ACO:
     def __init__(self, instancia, n_formigas=10, iter=20, alpha=1.0, beta=2.0, evaporacao=0.1, config=None):
@@ -128,8 +129,9 @@ class ACO:
         melhor_solucao = None
         melhor_custo_objetivo = float("inf")
         historico = []
+        start = time.time()
 
-        for _ in range(self.iter):
+        for it in range(self.iter):
             solucoes = []
 
             for f in range(self.n_formigas):
@@ -141,15 +143,16 @@ class ACO:
                     melhor_custo_objetivo = solucao.custo_objetivo
 
             self.atualizar_feromonio(solucoes)
-            historico.append(melhor_custo_objetivo)
+            historico.append((it+1, melhor_custo_objetivo, time.time() - start))
 
         if melhor_solucao is not None:
             # Polimento final: busca local mais cara (2-opt + relocate) só na
             # melhor solução
             melhor_solucao = busca_local(melhor_solucao, self.inst, self.config, passes=2)
-            historico.append(melhor_solucao.custo_objetivo)
+            historico.append((self.iter+1, melhor_solucao.custo_objetivo, time.time() - start))
             if melhor_solucao.meta is None:
                 melhor_solucao.meta = {}
+            melhor_solucao.meta["tempo"] = time.time() - start
             melhor_solucao.meta["historico_convergencia"] = historico
             melhor_solucao.meta["max_iter"] = self.iter
         return melhor_solucao

@@ -180,12 +180,12 @@ class PSO:
                         gbest_cost = cost
                         gbest_solucao = sol
 
-            historico.append(gbest_cost)
+            historico.append((it+1, gbest_cost, time.time() - start))
 
         # Polimento final: busca local (2-opt + relocate) apenas na melhor.
         gbest_solucao = busca_local(gbest_solucao, self.inst, self.config, passes=2)
         gbest_cost = gbest_solucao.custo_objetivo
-        historico.append(gbest_cost)
+        historico.append((self.max_iter+1, gbest_cost, time.time() - start))
 
         elapsed = time.time() - start
         gbest_solucao.tempo_computacional = elapsed

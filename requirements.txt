@@ -1,10 +1,8 @@
 pandas
 numpy
-networkx
 ortools
 matplotlib
 seaborn
 scipy
-aco
 geopy
 requests

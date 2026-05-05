@@ -1,21 +1,8 @@
-"""Configurações do problema CVRP (constantes da frota e depósito).
+"""Configurações de infraestrutura (OSRM e depósito).
 
-Unidades:
-- `CAPACIDADE_CAMINHAO`: unidades da demanda (mesma unidade de `valor_total` no CSV).
-- `NUMERO_CAMINHOES`: número de veículos disponíveis na frota.
-- `CARGA_MINIMA_CAMINHAO`: carga mínima por rota (10% da capacidade); rotas abaixo são penalizadas.
-
-As constantes ficam separadas neste arquivo para facilitar ajustes futuros.
+Parâmetros de frota (capacidade e número de caminhões) são definidos por instância
+em `config_experimento.py`, pois variam entre a instância pequena e a grande.
 """
-
-# Capacidade por caminhão (unidades)
-CAPACIDADE_CAMINHAO = 5000
-
-# Número de caminhões disponíveis na frota
-NUMERO_CAMINHOES = 3
-
-# Carga mínima por caminhão (evitar rotas quase vazias) — 10% da capacidade
-CARGA_MINIMA_CAMINHAO = int(CAPACIDADE_CAMINHAO * 0.10)
 
 # URL base do servidor OSRM para cálculo da matriz de distâncias
 # Local (Docker): "http://localhost:5000"

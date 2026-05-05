@@ -23,7 +23,6 @@ import pickle
 
 from scipy import stats
 
-from config import CAPACIDADE_CAMINHAO, NUMERO_CAMINHOES
 from config_experimento import INSTANCIAS, N_RUNS, SEED_BASE
 from modelos.instancia import Instancia
 from algoritmos.colonia_formigas import ACO
@@ -215,7 +214,18 @@ def _escrever_csv(path, linhas, fieldnames):
             writer.writerow({k: linha.get(k, "") for k in fieldnames})
 
 
-def comparar_multi_instancia():
+def comparar_multi_instancia(instancias=None):
+    """Executa o experimento comparativo para as instâncias fornecidas.
+
+    Parameters
+    ----------
+    instancias : list[dict] | None
+        Lista de configs de instância (mesmo formato de INSTANCIAS em
+        config_experimento.py). Se None, usa todas as instâncias do config.
+    """
+    if instancias is None:
+        instancias = INSTANCIAS
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
     out_dir = os.path.join(project_root, "resultados")
@@ -232,7 +242,7 @@ def comparar_multi_instancia():
 
     tempos_por_inst_alg = {}
 
-    for inst_cfg in INSTANCIAS:
+    for inst_cfg in instancias:
         nome = inst_cfg["nome"]
         path = inst_cfg["path"]
         usar_exato = inst_cfg.get("usar_exato", False)
@@ -243,7 +253,11 @@ def comparar_multi_instancia():
             continue
 
         print(f"\n{'='*60}\nInstância: {nome} ({path})\n{'='*60}")
-        instancia = Instancia.do_csv(path, capacidade_caminhao=CAPACIDADE_CAMINHAO)
+        instancia = Instancia.do_csv(
+            path,
+            capacidade_caminhao=inst_cfg["capacidade_caminhao"],
+            numero_caminhoes=inst_cfg["numero_caminhoes"],
+        )
         instancia.verificar_factibilidade()
         print(f"  n_clientes = {instancia.n_clientes}")
 

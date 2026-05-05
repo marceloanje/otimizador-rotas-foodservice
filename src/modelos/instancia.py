@@ -36,7 +36,7 @@ class Instancia:
         self.carga_minima = float(carga_minima)
 
     @classmethod
-    def do_csv(cls, path, capacidade_caminhao=None):
+    def do_csv(cls, path, capacidade_caminhao=None, numero_caminhoes=None):
         """Cria uma `Instancia` a partir do CSV de pedidos (CVRP).
 
         O depósito (nó 0) é inserido automaticamente a partir das constantes
@@ -55,13 +55,26 @@ class Instancia:
         capacidade_caminhao : int | None
             Capacidade por caminhão; se None usa o valor padrão de `config.py`.
         """
-        from config import CAPACIDADE_CAMINHAO, NUMERO_CAMINHOES, CARGA_MINIMA_CAMINHAO, DEPOSITO_LAT, DEPOSITO_LON
+        from config import DEPOSITO_LAT, DEPOSITO_LON
 
         from geoprocessamento.preprocessamento import limpar_pedidos
         df = limpar_pedidos(
             path,
             path_saida="src/dados/dados_processados/pedidos_limpos.csv",
         )
+
+        # Verificar antecipadamente se a capacidade comporta a maior demanda individual
+        if capacidade_caminhao is None:
+            raise ValueError("capacidade_caminhao é obrigatório. Defina-o em config_experimento.py.")
+        capacidade = capacidade_caminhao
+        if "valor_total" in df.columns:
+            max_demanda = df["valor_total"].fillna(0).astype(float).max()
+            if max_demanda > capacidade:
+                raise ValueError(
+                    f"Instância infactível: maior demanda individual ({max_demanda:.2f}) "
+                    f"excede capacidade do caminhão ({capacidade}). "
+                    f"Ajuste 'capacidade_caminhao' em config_experimento.py."
+                )
 
         # Geocodificar se lat/lon ainda não estiverem presentes
         if "lat" not in df.columns or "lon" not in df.columns:
@@ -108,15 +121,17 @@ class Instancia:
             demandas = [0.0] * len(df)
         demandas[0] = 0.0  # garante que o depósito tem demanda zero
 
-        capacidade = capacidade_caminhao if capacidade_caminhao is not None else CAPACIDADE_CAMINHAO
+        if numero_caminhoes is None:
+            raise ValueError("numero_caminhoes é obrigatório. Defina-o em config_experimento.py.")
+        carga_minima = int(capacidade * 0.10)
 
         instancia = cls(
             df=df,
             posicoes=posicoes,
             demandas=demandas,
             capacidade_caminhao=capacidade,
-            numero_caminhoes=NUMERO_CAMINHOES,
-            carga_minima=CARGA_MINIMA_CAMINHAO,
+            numero_caminhoes=numero_caminhoes,
+            carga_minima=carga_minima,
         )
 
         if matriz_real is not None:
@@ -173,7 +188,7 @@ class Instancia:
                 f"Instância infactível: demanda total ({demanda_total:.1f}) "
                 f"excede capacidade total da frota "
                 f"({self.numero_caminhoes} caminhões × {self.capacidade_caminhao} = {capacidade_total:.1f}). "
-                f"Ajuste NUMERO_CAMINHOES ou CAPACIDADE_CAMINHAO em config.py."
+                f"Ajuste 'numero_caminhoes' ou 'capacidade_caminhao' em config_experimento.py."
             )
 
     def validar(self):
@@ -191,6 +206,13 @@ class Instancia:
         import numbers as numeros
 
         n = len(self.posicoes)
+
+        # Pelo menos um cliente além do depósito
+        if self.n_clientes == 0:
+            raise ValueError(
+                "Instância inválida: nenhum cliente encontrado após o processamento do CSV. "
+                "Verifique o arquivo de dados (separador, colunas obrigatórias e valores de demanda)."
+            )
 
         # Consistência de tamanhos
         if not hasattr(self.posicoes, "__len__"):

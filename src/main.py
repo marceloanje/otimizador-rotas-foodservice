@@ -1,23 +1,32 @@
-from algoritmos.colonia_formigas import ACO
-from modelos.instancia import Instancia
-from comparador import comparar
+import argparse
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from comparador import comparar_multi_instancia
+from config_experimento import INSTANCIAS
+
 
 def main():
-    print("Otimizador de Rotas")
+    parser = argparse.ArgumentParser(description="Otimizador de Rotas Foodservice (CVRP)")
+    parser.add_argument(
+        "--instancia",
+        choices=[i["nome"] for i in INSTANCIAS],
+        default=None,
+        metavar="NOME",
+        help=f"Instância a executar ({', '.join(i['nome'] for i in INSTANCIAS)}). "
+             "Padrão: todas.",
+    )
+    args = parser.parse_args()
 
-    # Carregar dados ficticios
-    # instancia = Instancia.do_csv("src/dados/pedidos.csv")
-    # instancia.gerar_matriz_distancias_ficticia()
+    if args.instancia is not None:
+        instancias_filtradas = [i for i in INSTANCIAS if i["nome"] == args.instancia]
+    else:
+        instancias_filtradas = None
 
-    # Rodar versão inicial da colônia de formigas
-    # solver = ACO(instancia)
-    # solucao = solver.run()
+    comparar_multi_instancia(instancias=instancias_filtradas)
 
-    # print("Rota:", solucao.rota)
-    # print("Custo:", solucao.custo)
-
-    print("Rodando comparador (ACO, Tabu, PSO) — instância src/dados/pedidos.csv")
-    comparar(runs=10)
 
 if __name__ == "__main__":
     main()

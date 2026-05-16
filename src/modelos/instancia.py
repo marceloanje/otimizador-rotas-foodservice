@@ -1,3 +1,5 @@
+import hashlib
+import os
 import pandas as pd
 import numpy as np
 
@@ -103,13 +105,34 @@ class Instancia:
 
         posicoes = list(zip(df["lat"].astype(float), df["lon"].astype(float)))
 
-        # Tentar obter matriz real via OSRM
+        # Tentar obter matriz real via OSRM (com cache em disco)
         matriz_tempos_osrm = None
         try:
             from geoprocessamento.integracao_osrm import obter_matriz_osrm
-            print("Calculando matrizes de distâncias e tempos via OSRM...")
-            matriz_real, matriz_tempos_osrm = obter_matriz_osrm(posicoes)
-            print(f"Matrizes OSRM obtidas: shape {matriz_real.shape}, distâncias em metros, tempos em minutos.")
+
+            chave = hashlib.sha1(
+                ";".join(f"{lat:.6f},{lon:.6f}" for lat, lon in posicoes).encode()
+            ).hexdigest()[:12]
+            cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     "..", "dados", "matrizes_osrm")
+            os.makedirs(cache_dir, exist_ok=True)
+            cache_path = os.path.join(cache_dir, f"{chave}.npz")
+
+            if os.path.exists(cache_path):
+                data = np.load(cache_path)
+                matriz_real = data["dist"]
+                tempo_arr = data["tempo"]
+                matriz_tempos_osrm = tempo_arr if tempo_arr.size > 0 else None
+                print(f"Matrizes OSRM carregadas do cache ({chave[:8]}…): shape {matriz_real.shape}.")
+            else:
+                print("Calculando matrizes de distâncias e tempos via OSRM...")
+                matriz_real, matriz_tempos_osrm = obter_matriz_osrm(posicoes)
+                np.savez_compressed(
+                    cache_path,
+                    dist=matriz_real,
+                    tempo=matriz_tempos_osrm if matriz_tempos_osrm is not None else np.array([]),
+                )
+                print(f"Matrizes OSRM obtidas e salvas em cache ({chave[:8]}…): shape {matriz_real.shape}.")
         except Exception as e:
             print(f"AVISO: OSRM indisponível ({e}). Usando matriz euclidiana como fallback.")
             matriz_real = None

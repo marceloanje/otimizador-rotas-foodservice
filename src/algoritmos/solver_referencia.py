@@ -14,7 +14,7 @@ class SolverExato:
         solucao = solver.run()
 
     Detecta automaticamente se a instância tem janelas de tempo (VRPTW)
-    ou é CVRP puro. Recomendado para n_clientes <= 20.
+    ou é CVRP puro. Utilizar com n_clientes <= 20.
 
     Parâmetros
     ----------

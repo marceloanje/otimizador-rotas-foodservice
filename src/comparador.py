@@ -361,7 +361,7 @@ def comparar_multi_instancia(instancias=None):
 
         if usar_exato:
             print(f"\n  Executando SolverExato (1 run, limite={tempo_limite_exato}s)...")
-            from algoritmos.solver_exato import SolverExato
+            from algoritmos.solver_referencia import SolverExato
             ex_results = executar_algoritmo(
                 "Exato", SolverExato, instancia,
                 runs=1, seed_base=SEED_BASE,
